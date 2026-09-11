@@ -1,39 +1,39 @@
-# Buenas Prácticas — Physio Scheduler
+# Best Practices — Physio Scheduler
 
-## Objetivo
+## Goal
 
-- Mostrar cómo se debe trabajar en este proyecto para que lo que se escriba
-  y lo que se suba se mantenga seguro, legible y eficiente.
+- Define how to work in this project so that everything written and pushed
+  stays secure, readable and efficient.
 
-## Criterio de aceptación
+## Acceptance Criteria
 
-Cuando se vaya a hacer una tarea hay tres tipos:
+When working on a task there are three types:
 
-1. Aportación nueva/crear algo → `feature`/`feat`
-2. Modificar algo ya creado → `refactor`
-3. Arreglar un bug → `bugfix`/`fix`
+1. New feature/create something → `feature`/`feat`
+2. Modify something already created → `refactor`
+3. Fix a bug → `bugfix`/`fix`
 
-En todos los nombres de rama tiene que poner eltipo/PS/nombre de la tarea.
-PS viene de Physio Scheduler.
+Every branch name must follow the pattern eltipo/PS/task-name.
+PS stands for Physio Scheduler.
 
-En los commits se debe de poner `feat` en vez de `feature` y `bugfix` en vez
-de `fix`, ya que `fix` se podrá usar para cuando en una PR de `feature`, por
-ejemplo, haya que solucionar algún error.
+In commits use `feat` instead of `feature` and `bugfix` instead of `fix`,
+since `fix` is reserved for when a `feature` PR, for example, needs a
+small correction along the way.
 
-## Ejemplos de uso
+## Usage Examples
 
-Cuando se vaya a hacer una nueva tarea se debe de crear una rama aparte para
-no subir los cambios a `main`. Dependiendo de lo que se vaya a hacer, el
-nombre de la rama debe ser:
+When starting a new task, always create a separate branch — never push
+changes directly to `main`. Depending on the type of task, the branch
+name should be:
 
-1. Feature → nombre de rama: `feature/PS-x/nombre-de-rama`
-2. Refactor → nombre de rama: `refactor/PS-x/nombre-de-rama`
-3. Bugfix → nombre de rama: `bugfix/PS-x/nombre-de-rama`
+1. Feature → branch name: `feature/PS-x/branch-name`
+2. Refactor → branch name: `refactor/PS-x/branch-name`
+3. Bugfix → branch name: `bugfix/PS-x/branch-name`
 
-Para los commits:
+For commits:
 
-1. Feature → `"feat: nombre del commit"`
-2. Refactor → `"refactor: nombre del commit"`
-3. Bugfix → `"bugfix: nombre del commit"`
-4. Si en una PR de `feature` o `refactor` hay que solucionar un problema se
-   usará `"fix: nombre del commit"`
+1. Feature → `"feat: commit message"`
+2. Refactor → `"refactor: commit message"`
+3. Bugfix → `"bugfix: commit message"`
+4. If a `feature` or `refactor` PR needs a small correction, use
+   `"fix: commit message"`
