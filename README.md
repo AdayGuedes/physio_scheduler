@@ -1,5 +1,7 @@
 # physio_scheduler
 
+After setting up the project and before starting working, take a look and take in considerstion the best_practices file. This will show you how the names for branches, PRs, and commits must be
+
 ## Python version
 - The python version has to be 3.11+
 
