@@ -10,10 +10,14 @@ def create_app():
     login_manager.init_app(app)
     migrate.init_app(app, db)
 
-    # TODO: Diego crea auth.py/student.py/physio.py/api.py y descomenta esto
-    # app.register_blueprint(auth)
-    # app.register_blueprint(student)
-    # app.register_blueprint(physio)
-    # app.register_blueprint(api)
+    from app.auth import auth
+    from app.student import student
+    from app.physio import physio
+    from app.api import api
+
+    app.register_blueprint(auth)
+    app.register_blueprint(student)
+    app.register_blueprint(physio)
+    app.register_blueprint(api)
 
     return app
