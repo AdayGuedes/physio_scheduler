@@ -1,3 +1,15 @@
 body {
-    background-color: black;
+    background-color: #f5f5f5;
+}
+
+.btn-union {
+    background-color: #F16321;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 30px;
+}
+
+.btn-union:hover {
+    background-color: #d95117;
 }
