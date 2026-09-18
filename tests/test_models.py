@@ -6,7 +6,6 @@ from app.models import User, Resource, Appointment, AppointmentResource
 from datetime import datetime
 
 
-
 @pytest.fixture
 def create_app_and_init_db():
     app = Flask(__name__)

@@ -5,6 +5,7 @@ from app.auth import auth
 from app.extensions import db, login_manager, migrate
 from app.physio import physio
 from app.student import student
+from app import models
 from config import Config
 
 
