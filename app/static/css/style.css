@@ -1,15 +1,124 @@
 body {
-    background-color: #f5f5f5;
+  background-color: white;
 }
 
 .btn-union {
-    background-color: #F16321;
-    color: white;
-    border: none;
-    border-radius: 20px;
-    padding: 10px 30px;
+  background-color: #f16321;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 30px;
 }
 
 .btn-union:hover {
-    background-color: #d95117;
+  background-color: #d95117;
+}
+* {
+  margin: 0;
+}
+
+.divpai {
+  background-color: white;
+  margin-top: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: start;
+  height: 100vh;
+  width: 100%;
+}
+
+.divfilho {
+  background-color: white;
+  border-radius: 20px;
+  width: 300px;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 40px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.general {
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.sports-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.sport-card {
+  padding: 10px 20px;
+  border: 2px solid #ddd;
+  background-color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.sport-card.active {
+  border-color: #e65100;
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.logoU {
+  width: 40px;
+  height: 40px;
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+
+.b4 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.logoU img {
+  width: 100%;
+  height: 100%;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  font-size: 40px;
+  color: black;
+}
+
+input {
+  background-color: azure;
+  padding: 10px;
+  margin: 5px;
+}
+
+.b3 {
+  margin-top: 5px;
+  background-color: #f16321;
+  padding: 10px 65px;
+  border-radius: 20px;
+  border: none;
+}
+.personal-information {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: center;
 }
