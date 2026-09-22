@@ -1,0 +1,27 @@
+name: CI
+
+on: 
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ci-test-key
+      DATABASE_URL: sqlite:///ci.db
+    steps:
+      - name: Get-code-changes
+        uses: actions/checkout@v5
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install Dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run format script
+        run: ./scripts/format.sh --check
+      - name: Run lint script
+        run: ./scripts/lint.sh 
+      - name: Run tests
+        run: ./scripts/test.sh

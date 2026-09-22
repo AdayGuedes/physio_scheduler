@@ -1,11 +1,11 @@
 from flask import Flask
 
+from app import models  # noqa: F401 (registra los modelos en db.metadata)
 from app.api import api
 from app.auth import auth
 from app.extensions import db, login_manager, migrate
 from app.physio import physio
 from app.student import student
-from app import models
 from config import Config
 
 
