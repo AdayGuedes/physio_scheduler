@@ -1,23 +1,13 @@
-import pytest
-from flask import Flask
-from app.extensions import db
-from sqlalchemy.exc import IntegrityError
-from app.models import User, Resource, Appointment, AppointmentResource
 from datetime import datetime
 
+import pytest
+from sqlalchemy.exc import IntegrityError
 
-@pytest.fixture
-def create_app_and_init_db():
-    app = Flask(__name__)
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    db.init_app(app)
+from app.extensions import db
+from app.models import Appointment, User
 
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.drop_all()
 
-def test_user_email_to_be_unique(create_app_and_init_db):
+def test_user_email_to_be_unique(app):
     db.session.add(User(
         id = 1,
         name = "Manolo",
@@ -38,7 +28,7 @@ def test_user_email_to_be_unique(create_app_and_init_db):
         db.session.commit()
 
 
-def test_relationship_appointment_client(create_app_and_init_db):
+def test_relationship_appointment_client(app):
     user_test = User(
         id = 1,
         name = "Manolo",

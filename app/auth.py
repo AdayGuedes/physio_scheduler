@@ -10,7 +10,7 @@ auth = Blueprint("auth", __name__, url_prefix="/auth")
 
 @login_manager.user_loader
 def load_user(user_id):
-    """Return the user stored in the session, or None if it no longer exists."""
+    """Reload the session user for Flask-Login on authenticated requests."""
     return db.session.get(User, int(user_id))
 
 
@@ -56,6 +56,8 @@ def authenticate_user(email, password):
 
     Returns:
         The matching User, or None if either credential is invalid.
+        The same result for both failures deliberately avoids revealing
+        whether an email address is registered.
     """
     normalized_email = email.strip().lower()
 
@@ -129,10 +131,10 @@ def login():
                 login_user(user)
 
                 if user.role == "physio":
-                    # TODO(PS-8): Replace this path with url_for when the dashboard route exists.
+                    # TODO(PS-8): Use url_for("physio.dashboard") after PS-8.
                     return redirect("/physio/dashboard")
 
-                # TODO(PS-7): Replace this path with url_for when the appointments route exists.
+                # TODO(PS-7): Use url_for("student.my_appointments") after PS-7.
                 return redirect("/student/appointments")
 
             errors.append("Invalid email or password.")

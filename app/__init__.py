@@ -1,6 +1,6 @@
 from flask import Flask
 
-from app import models  # noqa: F401  # Registers database models.
+from app import models  # noqa: F401  (registers models in db.metadata)
 from app.api import api
 from app.auth import auth
 from app.extensions import db, login_manager, migrate

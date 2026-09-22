@@ -1,5 +1,4 @@
 import pytest
-from flask import Flask
 from jinja2 import DictLoader, TemplateNotFound
 from werkzeug.security import check_password_hash
 
@@ -10,13 +9,8 @@ from app.models import User
 
 
 @pytest.fixture
-def auth_app():
-    app = Flask(__name__)
-
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    app.config["SECRET_KEY"] = "test-secret-key"
-    app.config["TESTING"] = True
-
+def auth_app(app):
+    """Add auth routes and lightweight templates to the shared test app."""
     app.jinja_loader = DictLoader(
         {
             "auth/register.html": "{{ errors | join(', ') }}",
@@ -24,16 +18,9 @@ def auth_app():
         }
     )
 
-    db.init_app(app)
-    login_manager.init_app(app)
     login_manager.login_view = "auth.login"
     app.register_blueprint(auth)
-
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.session.remove()
-        db.drop_all()
+    return app
 
 
 def test_register_user(auth_app):
