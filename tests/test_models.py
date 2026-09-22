@@ -8,45 +8,49 @@ from app.models import Appointment, User
 
 
 def test_user_email_to_be_unique(app):
-    db.session.add(User(
-        id = 1,
-        name = "Manolo",
-        email = "manolo@test.com",
-        password_hash = "12345",
-        role = "client"
-    ))
+    db.session.add(
+        User(
+            id=1,
+            name="Manolo",
+            email="manolo@test.com",
+            password_hash="12345",
+            role="client",
+        )
+    )
     db.session.commit()
 
     with pytest.raises(IntegrityError):
-        db.session.add(User(
-                id = 2,
-                name = "Dani",
-                email = "manolo@test.com",
-                password_hash = "12345",
-                role = "client"
-            ))
+        db.session.add(
+            User(
+                id=2,
+                name="Dani",
+                email="manolo@test.com",
+                password_hash="12345",
+                role="client",
+            )
+        )
         db.session.commit()
 
 
 def test_relationship_appointment_client(app):
     user_test = User(
-        id = 1,
-        name = "Manolo",
-        email = "manolo@test.com",
-        password_hash = "12345",
-        role = "client"
+        id=1,
+        name="Manolo",
+        email="manolo@test.com",
+        password_hash="12345",
+        role="client",
     )
     db.session.add(user_test)
     db.session.commit()
 
     appointment_test = Appointment(
-        id = 1,
-        client = user_test,
-        start_time = datetime(2026, 9, 16, 10, 0),
-        end_time = datetime(2026, 9, 16, 10, 30),
-        reason = "Tight hamstrings",
-        physio_notes = "This player had a previous lesson on left hamstring",
-        status = "confirmed"
+        id=1,
+        client=user_test,
+        start_time=datetime(2026, 9, 16, 10, 0),
+        end_time=datetime(2026, 9, 16, 10, 30),
+        reason="Tight hamstrings",
+        physio_notes="This player had a previous lesson on left hamstring",
+        status="confirmed",
     )
     db.session.add(appointment_test)
     db.session.commit()
