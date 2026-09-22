@@ -1,161 +1,161 @@
-# Convenciones de Nomenclatura — Physio Scheduler
+# Naming Conventions — Physio Scheduler
 
-Documento vivo. Objetivo: que Aday (DB), Diego (backend) y Vitor (frontend) usen
-siempre el mismo nombre para la misma cosa, sin tener que preguntarse entre sí.
-Cualquier cambio a este documento se comenta en el grupo antes de aplicarse.
+Living document. Goal: for Aday (DB), Diego (backend) and Vitor (frontend) to
+always use the same name for the same thing, without having to ask each other.
+Any change to this document is discussed in the group chat before being applied.
 
-## 1. Reglas generales
+## 1. General rules
 
-- **Idioma:** inglés para todo lo que sea código (tablas, columnas, funciones,
-  variables). Español solo en comentarios y en la documentación en sí.
-- **Casing por capa:**
-  - Tablas y columnas (SQL/SQLAlchemy) → `snake_case`
-  - Funciones y variables Python → `snake_case`
-  - Nombres de tabla → **plural** (`users`, no `user`)
-- **Nunca usar palabras reservadas de SQL como nombre de columna**
-  (`end`, `order`, `group`, `select`...). Si dudáis, añadid un sufijo
-  descriptivo (`end_time`, no `end`).
+- **Language:** English for everything that is code (tables, columns, functions,
+  variables). Spanish only in comments and in the documentation itself.
+- **Casing per layer:**
+  - Tables and columns (SQL/SQLAlchemy) → `snake_case`
+  - Python functions and variables → `snake_case`
+  - Table names → **plural** (`users`, not `user`)
+- **Never use SQL reserved words as a column name**
+  (`end`, `order`, `group`, `select`...). If in doubt, add a
+  descriptive suffix (`end_time`, not `end`).
 
-## 2. Tablas (capa de base de datos — Aday)
+## 2. Tables (database layer — Aday)
 
-| Tabla | Columnas | Notas |
+| Table | Columns | Notes |
 |---|---|---|
 | `users` | `id`, `email`, `password_hash`, `name`, `role` | `role` = `physio` \| `client` |
 | `resources` | `id`, `type`, `name`, `total_quantity` | `type` = `bed`, `gameready_feet`, `gameready_thighs`, `compression_lower_body`, `heat`, `cold`, `ice_bath` |
-| `appointments` | `id`, `client_id` (FK → `users.id`), `start_time`, `end_time`, `reason`, `physio_notes`, `status` | Renombrado `start`/`end` → `start_time`/`end_time` (palabras reservadas en SQL) |
-| `appointment_resources` | `id`, `appointment_id` (FK → `appointments.id`), `resource_id` (FK → `resources.id`), `quantity` | Tabla puente |
+| `appointments` | `id`, `client_id` (FK → `users.id`), `start_time`, `end_time`, `reason`, `physio_notes`, `status` | Renamed `start`/`end` → `start_time`/`end_time` (SQL reserved words) |
+| `appointment_resources` | `id`, `appointment_id` (FK → `appointments.id`), `resource_id` (FK → `resources.id`), `quantity` | Junction table |
 
-**Regla de foreign keys:** `<tabla_singular>_id`. Ojo con `client_id`: apunta a
-`users.id`, pero se llama `client_id` porque describe el rol semántico (quién
-reserva la cita), no el nombre literal de la tabla destino. Es intencional,
-no un error.
+**Foreign key rule:** `<singular_table>_id`. Watch out for `client_id`: it points to
+`users.id`, but is called `client_id` because it describes the semantic role
+(who books the appointment), not the literal name of the target table. This is
+intentional, not a mistake.
 
-## 3. Funciones (lógica de negocio — principalmente Diego, pero Aday también
-escribirá funciones a nivel de modelo/DB)
+## 3. Functions (business logic — mainly Diego, but Aday will also
+write model/DB-level functions)
 
-**Patrón:** `verbo_sustantivo`, `snake_case`.
+**Pattern:** `verb_noun`, `snake_case`.
 
-| Verbo | Significado |
+| Verb | Meaning |
 |---|---|
-| `get_` | Lee y devuelve datos, no modifica nada |
-| `create_` | Inserta un registro nuevo |
-| `update_` | Modifica un registro existente |
-| `cancel_` | Baja lógica (cambia `status`, no borra la fila) |
-| `check_` | Valida una condición, devuelve resultado, no persiste |
+| `get_` | Reads and returns data, does not modify anything |
+| `create_` | Inserts a new record |
+| `update_` | Modifies an existing record |
+| `cancel_` | Soft delete (changes `status`, does not delete the row) |
+| `check_` | Validates a condition, returns a result, does not persist |
 
-### Funciones núcleo (a completar según avance el desarrollo)
+### Core functions (to be completed as development progresses)
 
-| Función | Descripción |
+| Function | Description |
 |---|---|
-| `check_availability(start_time, end_time, requested_resources)` | Función central del sistema (disponibilidad de fisio + equipo) |
-| `create_appointment(client_id, start_time, end_time, reason, resources)` | Llama a `check_availability` antes de guardar |
-| `cancel_appointment(appointment_id)` | Baja lógica de una cita |
-| `get_appointments_by_client(client_id)` | Vista "mis citas" del estudiante |
-| `get_daily_agenda(date)` | Dashboard de la fisioterapeuta |
-| `update_physio_notes(appointment_id, notes)` | Notas clínicas por sesión |
-| `update_resource_quantity(resource_id, new_quantity)` | Gestión de inventario |
-| `register_user(email, password, name)` | Alta de usuario |
+| `check_availability(start_time, end_time, requested_resources)` | Central function of the system (physio + equipment availability) |
+| `create_appointment(client_id, start_time, end_time, reason, resources)` | Calls `check_availability` before saving |
+| `cancel_appointment(appointment_id)` | Soft delete of an appointment |
+| `get_appointments_by_client(client_id)` | "My appointments" view for the student |
+| `get_daily_agenda(date)` | Physiotherapist's dashboard |
+| `update_physio_notes(appointment_id, notes)` | Clinical notes per session |
+| `update_resource_quantity(resource_id, new_quantity)` | Inventory management |
+| `register_user(email, password, name)` | User sign-up |
 | `authenticate_user(email, password)` | Login |
 
-## 4. Blueprints y rutas Flask (Diego expone, Vitor consume con `url_for()`)
+## 4. Blueprints and Flask routes (Diego exposes them, Vitor consumes them with `url_for()`)
 
-Se usan **Blueprints** para que cada módulo viva en su propio archivo Python
-y evitar conflictos de merge entre los tres. Cada Blueprint agrupa las rutas
-de un contexto del sistema.
+**Blueprints** are used so each module lives in its own Python file
+and merge conflicts between the three of us are avoided. Each Blueprint groups the routes
+for one context of the system.
 
-| Blueprint | Archivo | Prefijo URL |
+| Blueprint | File | URL prefix |
 |---|---|---|
 | `auth` | `auth.py` | `/auth` |
 | `student` | `student.py` | `/student` |
 | `physio` | `physio.py` | `/physio` |
 | `api` | `api.py` | `/api` |
 
-### Rutas por Blueprint
+### Routes per Blueprint
 
-**`auth`** — Registro, login, logout
+**`auth`** — Registration, login, logout
 
-| Método | URL | Endpoint (`url_for`) | Qué hace |
+| Method | URL | Endpoint (`url_for`) | What it does |
 |---|---|---|---|
-| GET/POST | `/auth/register` | `auth.register` | Formulario de registro + procesamiento |
-| GET/POST | `/auth/login` | `auth.login` | Formulario de login + procesamiento |
-| GET | `/auth/logout` | `auth.logout` | Cierra sesión y redirige |
+| GET/POST | `/auth/register` | `auth.register` | Registration form + processing |
+| GET/POST | `/auth/login` | `auth.login` | Login form + processing |
+| GET | `/auth/logout` | `auth.logout` | Logs out and redirects |
 
-**`student`** — Todo lo que ve el estudiante
+**`student`** — Everything the student sees
 
-| Método | URL | Endpoint (`url_for`) | Qué hace |
+| Method | URL | Endpoint (`url_for`) | What it does |
 |---|---|---|---|
-| GET | `/student/appointments` | `student.my_appointments` | Lista "mis citas" |
-| GET | `/student/appointments/new` | `student.new_appointment` | Formulario de reserva |
-| POST | `/student/appointments` | `student.create_appointment` | Procesa la reserva |
-| POST | `/student/appointments/<id>/cancel` | `student.cancel_appointment` | Cancela una cita |
+| GET | `/student/appointments` | `student.my_appointments` | "My appointments" list |
+| GET | `/student/appointments/new` | `student.new_appointment` | Booking form |
+| POST | `/student/appointments` | `student.create_appointment` | Processes the booking |
+| POST | `/student/appointments/<id>/cancel` | `student.cancel_appointment` | Cancels an appointment |
 
-**`physio`** — Dashboard y gestión de la fisioterapeuta
+**`physio`** — Physiotherapist's dashboard and management
 
-| Método | URL | Endpoint (`url_for`) | Qué hace |
+| Method | URL | Endpoint (`url_for`) | What it does |
 |---|---|---|---|
-| GET | `/physio/dashboard` | `physio.dashboard` | Agenda diaria + vista semanal/mensual |
-| GET | `/physio/appointments/<id>` | `physio.appointment_detail` | Detalle de una cita |
-| POST | `/physio/appointments/<id>/edit` | `physio.edit_appointment` | Editar una cita |
-| POST | `/physio/appointments/<id>/notes` | `physio.update_notes` | Guardar notas clínicas |
-| GET | `/physio/inventory` | `physio.inventory` | Ver inventario |
-| POST | `/physio/inventory/<id>/edit` | `physio.update_resource` | Cambiar cantidad de un recurso |
+| GET | `/physio/dashboard` | `physio.dashboard` | Daily agenda + weekly/monthly view |
+| GET | `/physio/appointments/<id>` | `physio.appointment_detail` | Appointment detail |
+| POST | `/physio/appointments/<id>/edit` | `physio.edit_appointment` | Edit an appointment |
+| POST | `/physio/appointments/<id>/notes` | `physio.update_notes` | Save clinical notes |
+| GET | `/physio/inventory` | `physio.inventory` | View inventory |
+| POST | `/physio/inventory/<id>/edit` | `physio.update_resource` | Change the quantity of a resource |
 
-**`api`** — Endpoints JSON (solo para FullCalendar)
+**`api`** — JSON endpoints (only for FullCalendar)
 
-| Método | URL | Endpoint (`url_for`) | Qué hace |
+| Method | URL | Endpoint (`url_for`) | What it does |
 |---|---|---|---|
-| GET | `/api/events` | `api.events` | Feed JSON de citas para FullCalendar |
+| GET | `/api/events` | `api.events` | JSON feed of appointments for FullCalendar |
 
-### Regla para `url_for()` con parámetros
+### Rule for `url_for()` with parameters
 
-En las plantillas de Vitor, cuando la ruta lleva `<id>`:
+In Vitor's templates, when the route has an `<id>`:
 ```
 {{ url_for('physio.appointment_detail', id=appointment.id) }}
 {{ url_for('student.cancel_appointment', id=appointment.id) }}
 ```
-El nombre del parámetro en `url_for()` **tiene que coincidir exactamente**
-con el nombre entre `< >` en la definición de la ruta. Si Diego define
-`/appointments/<appointment_id>`, Vitor escribe `id=` y falla silenciosamente
-con una URL rota. Por eso fijamos `<id>` como estándar en todas las rutas —
-corto, consistente, sin ambigüedad porque el Blueprint ya dice de qué entidad
-se trata.
+The parameter name in `url_for()` **must match exactly**
+the name between `< >` in the route definition. If Diego defines
+`/appointments/<appointment_id>`, and Vitor writes `id=`, it fails silently
+with a broken URL. That's why we set `<id>` as the standard for all routes —
+short, consistent, unambiguous because the Blueprint already says which
+entity it's about.
 
-## 5. Variables de contexto (`render_template`) — el contrato Diego → Vitor
+## 5. Context variables (`render_template`) — the Diego → Vitor contract
 
-Estas son las variables que Diego pasa a cada plantilla. Vitor las usa en
-Jinja2 con `{{ variable }}`. Si el nombre no coincide exactamente, Jinja2
-no da error — renderiza vacío.
+These are the variables Diego passes to each template. Vitor uses them
+in Jinja2 with `{{ variable }}`. If the name doesn't match exactly, Jinja2
+doesn't raise an error — it renders empty.
 
-| Endpoint | Template | Variables que recibe |
+| Endpoint | Template | Variables received |
 |---|---|---|
-| `auth.register` | `auth/register.html` | `errors` (lista de strings, opcional) |
-| `auth.login` | `auth/login.html` | `errors` (lista de strings, opcional) |
-| `student.my_appointments` | `student/my_appointments.html` | `appointments` (lista de objetos Appointment con sus resources) |
-| `student.new_appointment` | `student/new_appointment.html` | `resources` (lista de objetos Resource), `errors` (opcional) |
-| `physio.dashboard` | `physio/dashboard.html` | `appointments` (lista del día), `selected_date` (objeto date) |
-| `physio.appointment_detail` | `physio/appointment_detail.html` | `appointment` (objeto Appointment con client y resources) |
-| `physio.inventory` | `physio/inventory.html` | `resources` (lista de objetos Resource) |
+| `auth.register` | `auth/register.html` | `errors` (list of strings, optional) |
+| `auth.login` | `auth/login.html` | `errors` (list of strings, optional) |
+| `student.my_appointments` | `student/my_appointments.html` | `appointments` (list of Appointment objects with their resources) |
+| `student.new_appointment` | `student/new_appointment.html` | `resources` (list of Resource objects), `errors` (optional) |
+| `physio.dashboard` | `physio/dashboard.html` | `appointments` (list for the day), `selected_date` (date object) |
+| `physio.appointment_detail` | `physio/appointment_detail.html` | `appointment` (Appointment object with client and resources) |
+| `physio.inventory` | `physio/inventory.html` | `resources` (list of Resource objects) |
 
-**Regla:** el nombre de la variable es siempre el nombre de la tabla
-(en plural si es una lista, en singular si es un solo objeto). No inventar
-sinónimos — `appointments`, no `agenda`, no `bookings`, no `citas`.
+**Rule:** the variable name is always the table name
+(plural if it's a list, singular if it's a single object). Don't invent
+synonyms — `appointments`, not `agenda`, not `bookings`, not `citas`.
 
-**Variable global disponible en todas las plantillas:** `current_user`
-(inyectada automáticamente por Flask-Login). Vitor puede usarla para
-mostrar el nombre del usuario logueado, condicionar menús por rol, etc.
+**Global variable available in all templates:** `current_user`
+(injected automatically by Flask-Login). Vitor can use it to
+show the logged-in user's name, condition menus by role, etc.
 
-## 6. Formato JSON para FullCalendar.js
+## 6. JSON format for FullCalendar.js
 
-FullCalendar necesita un array de objetos con claves específicas. El
-endpoint `api.events` traduce nuestro modelo a ese formato. Esta
-traducción se hace **una sola vez**, en ese endpoint — ni Diego ni Vitor
-usan estos nombres en ningún otro sitio.
+FullCalendar needs an array of objects with specific keys. The
+`api.events` endpoint translates our model into that format. This
+translation happens **only once**, in that endpoint — neither Diego nor Vitor
+use these names anywhere else.
 
 ```json
 [
   {
     "id": 42,
-    "title": "Dolor en el tobillo derecho",
+    "title": "Right ankle pain",
     "start": "2026-10-05T10:00:00",
     "end": "2026-10-05T10:30:00",
     "status": "confirmed",
@@ -164,40 +164,40 @@ usan estos nombres en ningún otro sitio.
 ]
 ```
 
-| Clave FullCalendar | Viene de (nuestro modelo) | Nota |
+| FullCalendar key | Comes from (our model) | Note |
 |---|---|---|
-| `id` | `appointments.id` | Sin cambio |
-| `title` | `appointments.reason` | Renombrado: FullCalendar muestra `title` en el calendario |
-| `start` | `appointments.start_time` | Renombrado + formato ISO 8601 |
-| `end` | `appointments.end_time` | Renombrado + formato ISO 8601 |
-| `status` | `appointments.status` | Para colorear eventos por estado |
-| `url` | generado con `url_for(...)` | Click en el evento → detalle de la cita |
+| `id` | `appointments.id` | No change |
+| `title` | `appointments.reason` | Renamed: FullCalendar shows `title` on the calendar |
+| `start` | `appointments.start_time` | Renamed + ISO 8601 format |
+| `end` | `appointments.end_time` | Renamed + ISO 8601 format |
+| `status` | `appointments.status` | To color events by status |
+| `url` | generated with `url_for(...)` | Clicking the event → appointment detail |
 
-## 7. Estructura de carpetas del proyecto
+## 7. Project folder structure
 
 ```
 physio-scheduler/
 │
-├── .claude/                          ← Contexto del proyecto para Claude Code
+├── .claude/                          ← Project context for Claude Code
 │   └── settings.json
 │
 ├── .github/
 │   └── workflows/                    ← CI (linting, tests)
 │
-├── docs/                             ← Documentación (este documento vive aquí)
-│   └── convenciones-nombres.md
+├── docs/                             ← Documentation (this document lives here)
+│   └── naming_concepts.md
 │
-├── app/                              ← Paquete principal de Flask
+├── app/                              ← Main Flask package
 │   ├── __init__.py                   ← App factory (create_app)
-│   ├── models.py                     ← Modelos SQLAlchemy         — ADAY
-│   ├── seed.py                       ← Seed del inventario inicial — ADAY
-│   ├── auth.py                       ← Blueprint auth             — DIEGO
-│   ├── student.py                    ← Blueprint student           — DIEGO
-│   ├── physio.py                     ← Blueprint physio            — DIEGO
-│   ├── api.py                        ← Blueprint api (FullCalendar)— DIEGO
+│   ├── models.py                     ← SQLAlchemy models          — ADAY
+│   ├── seed.py                       ← Initial inventory seed     — ADAY
+│   ├── auth.py                       ← auth Blueprint             — DIEGO
+│   ├── student.py                    ← student Blueprint          — DIEGO
+│   ├── physio.py                     ← physio Blueprint           — DIEGO
+│   ├── api.py                        ← api Blueprint (FullCalendar)— DIEGO
 │   │
-│   ├── templates/                    ← Plantillas Jinja2           — VITOR
-│   │   ├── base.html                 ← Layout base (navbar, Bootstrap, scripts)
+│   ├── templates/                    ← Jinja2 templates           — VITOR
+│   │   ├── base.html                 ← Base layout (navbar, Bootstrap, scripts)
 │   │   ├── auth/
 │   │   │   ├── login.html
 │   │   │   └── register.html
@@ -209,82 +209,82 @@ physio-scheduler/
 │   │       ├── appointment_detail.html
 │   │       └── inventory.html
 │   │
-│   └── static/                       ← CSS, JS, imágenes          — VITOR
+│   └── static/                       ← CSS, JS, images            — VITOR
 │       ├── css/
 │       ├── js/
 │       └── img/
 │
-├── tests/                            ← Tests (todos)
-├── config.py                         ← Configuración (SECRET_KEY, DB URI, etc.)
-├── run.py                            ← Punto de entrada: python run.py
+├── tests/                            ← Tests (everyone)
+├── config.py                         ← Configuration (SECRET_KEY, DB URI, etc.)
+├── run.py                            ← Entry point: python run.py
 ├── requirements.txt
 └── README.md
 ```
 
-### Por qué `app/` y no `src/db` + `src/backend` + `src/frontend`
+### Why `app/` and not `src/db` + `src/backend` + `src/frontend`
 
-Flask busca `templates/` y `static/` dentro del paquete de la aplicación.
-Si separáis en tres carpetas hermanas, tendréis que sobreescribir rutas por
-defecto en cada Blueprint y los imports entre capas se complican. Con esta
-estructura, todo es `from app.models import Appointment` — limpio y estándar.
+Flask looks for `templates/` and `static/` inside the application package.
+If you split into three sibling folders, you'll have to override default routes
+in each Blueprint and imports between layers get complicated. With this
+structure, everything is `from app.models import Appointment` — clean and standard.
 
-La separación de responsabilidades no es por carpetas de primer nivel,
-es por archivos:
+The separation of responsibilities is not by top-level folders,
+it's by files:
 
-| Persona | Sus archivos | Toca archivos de otro |
+| Person | Their files | Touches another's files |
 |---|---|---|
-| Aday (DB) | `models.py`, `seed.py`, migraciones | No |
+| Aday (DB) | `models.py`, `seed.py`, migrations | No |
 | Diego (backend) | `auth.py`, `student.py`, `physio.py`, `api.py` | No |
 | Vitor (frontend) | `templates/**`, `static/**`, `base.html` | No |
 
-Misma ventaja de cero conflictos de merge, pero respetando las convenciones
-de Flask.
+Same zero-merge-conflict advantage, while still respecting Flask's
+conventions.
 
-## 8. Valores de `status` y transiciones válidas
+## 8. `status` values and valid transitions
 
-| Valor | Significado |
+| Value | Meaning |
 |---|---|
-| `confirmed` | Cita reservada y validada por el sistema |
-| `cancelled_by_client` | Cancelada por el estudiante |
-| `cancelled_by_physio` | Cancelada por la fisioterapeuta |
-| `completed` | La cita ya tuvo lugar (la fisio la marca como completada) |
-| `no_show` | El estudiante no se presentó |
+| `confirmed` | Appointment booked and validated by the system |
+| `cancelled_by_client` | Cancelled by the student |
+| `cancelled_by_physio` | Cancelled by the physiotherapist |
+| `completed` | The appointment already took place (the physio marks it as completed) |
+| `no_show` | The student did not show up |
 
-### Transiciones permitidas
+### Allowed transitions
 
 ```
-confirmed → cancelled_by_client    (estudiante cancela)
-confirmed → cancelled_by_physio    (fisio cancela)
-confirmed → completed              (fisio marca como completada)
-confirmed → no_show                (fisio marca como no presentado)
+confirmed → cancelled_by_client    (student cancels)
+confirmed → cancelled_by_physio    (physio cancels)
+confirmed → completed              (physio marks as completed)
+confirmed → no_show                (physio marks as no-show)
 ```
 
-Ningún otro cambio de estado es válido. Una cita cancelada o completada
-**no vuelve atrás** — si hubo un error, se crea una cita nueva. Esto
-simplifica mucho la lógica y protege el historial.
+No other status change is valid. A cancelled or completed appointment
+**cannot go back** — if there was a mistake, a new appointment is created. This
+greatly simplifies the logic and protects the history.
 
-**Implicación para la disponibilidad:** `check_availability` solo cuenta
-como "ocupadas" las citas con `status = confirmed`. Las canceladas, completadas
-y no-show no bloquean recursos.
+**Implication for availability:** `check_availability` only counts
+appointments with `status = confirmed` as "busy". Cancelled, completed
+and no-show appointments do not block resources.
 
-## 9. Formato de errores de `check_availability`
+## 9. Error format for `check_availability`
 
-Cuando la reserva no es posible, `check_availability` devuelve un diccionario
-con esta estructura fija. Vitor puede confiar en estos nombres para mostrar
-los mensajes en la plantilla.
+When the booking is not possible, `check_availability` returns a dictionary
+with this fixed structure. Vitor can rely on these names to display
+the messages in the template.
 
 ```python
-# Reserva exitosa
+# Successful booking
 {"available": True}
 
-# Fisio ocupada en ese horario
+# Physio busy at that time
 {
     "available": False,
     "reason": "physio_busy",
     "message": "The physiotherapist already has an appointment in that time slot."
 }
 
-# Equipo insuficiente
+# Insufficient equipment
 {
     "available": False,
     "reason": "resource_unavailable",
@@ -297,18 +297,18 @@ los mensajes en la plantilla.
 }
 ```
 
-| Campo | Tipo | Siempre presente | Descripción |
+| Field | Type | Always present | Description |
 |---|---|---|---|
-| `available` | `bool` | Sí | `True` si se puede reservar |
-| `reason` | `str` | Solo si `available=False` | `physio_busy` o `resource_unavailable` |
-| `message` | `str` | Solo si `available=False` | Mensaje legible para mostrar al usuario |
-| `detail` | `dict` | Solo si `reason=resource_unavailable` | Qué recurso falla y cuántas unidades quedan |
+| `available` | `bool` | Yes | `True` if the booking can be made |
+| `reason` | `str` | Only if `available=False` | `physio_busy` or `resource_unavailable` |
+| `message` | `str` | Only if `available=False` | Readable message to show to the user |
+| `detail` | `dict` | Only if `reason=resource_unavailable` | Which resource fails and how many units remain |
 
-## 10. Pendiente para la siguiente iteración
+## 10. Pending for the next iteration
 
-- **Reglas de negocio pendientes de confirmar con la entrenadora:** horario
-  de atención (¿lunes a viernes? ¿horas?), duración de las citas (¿fija o
-  variable?), inventario real (confirmar tipos y cantidades).
-- **Formato de los emails** de confirmación y recordatorio (Flask-Mail).
-- **Estrategia de testing:** qué se testea, quién testea qué, convenciones
-  de nombres para los tests.
+- **Business rules pending confirmation with the trainer:** business
+  hours (Monday to Friday? which hours?), appointment duration (fixed or
+  variable?), real inventory (confirm types and quantities).
+- **Format of confirmation and reminder emails** (Flask-Mail).
+- **Testing strategy:** what gets tested, who tests what, naming
+  conventions for tests.
