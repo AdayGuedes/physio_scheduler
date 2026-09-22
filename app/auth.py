@@ -10,10 +10,21 @@ auth = Blueprint("auth", __name__, url_prefix="/auth")
 
 @login_manager.user_loader
 def load_user(user_id):
+    """Return the user stored in the session, or None if it no longer exists."""
     return db.session.get(User, int(user_id))
 
 
 def register_user(email, password, name):
+    """Create a client account.
+
+    Args:
+        email: Email address; surrounding spaces are removed and letters lowercased.
+        password: Plain-text password to store as a hash.
+        name: User's name; surrounding spaces are removed.
+
+    Returns:
+        The new User, or None if the email is already registered.
+    """
     normalized_email = email.strip().lower()
 
     existing_user = db.session.scalar(
@@ -37,6 +48,15 @@ def register_user(email, password, name):
 
 
 def authenticate_user(email, password):
+    """Check a user's email and password.
+
+    Args:
+        email: Email address to look up, ignoring spaces and letter case.
+        password: Plain-text password to check against the stored hash.
+
+    Returns:
+        The matching User, or None if either credential is invalid.
+    """
     normalized_email = email.strip().lower()
 
     user = db.session.scalar(db.select(User).where(User.email == normalized_email))
@@ -52,6 +72,7 @@ def authenticate_user(email, password):
 
 @auth.route("/register", methods=["GET", "POST"])
 def register():
+    """Show the registration page or create an account from submitted data."""
     errors = []
 
     if request.method == "POST":
@@ -85,6 +106,7 @@ def register():
 
 @auth.route("/login", methods=["GET", "POST"])
 def login():
+    """Show the login page or sign in a user with submitted credentials."""
     errors = []
 
     if request.method == "POST":
@@ -107,8 +129,10 @@ def login():
                 login_user(user)
 
                 if user.role == "physio":
+                    # TODO(PS-8): Replace this path with url_for when the dashboard route exists.
                     return redirect("/physio/dashboard")
 
+                # TODO(PS-7): Replace this path with url_for when the appointments route exists.
                 return redirect("/student/appointments")
 
             errors.append("Invalid email or password.")
@@ -119,5 +143,6 @@ def login():
 @auth.route("/logout")
 @login_required
 def logout():
+    """End the current user's session and redirect to the login page."""
     logout_user()
     return redirect(url_for("auth.login"))

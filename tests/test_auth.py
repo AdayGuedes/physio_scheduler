@@ -1,15 +1,16 @@
 import pytest
 from flask import Flask
-from jinja2 import DictLoader
+from jinja2 import DictLoader, TemplateNotFound
 from werkzeug.security import check_password_hash
 
+from app import create_app
 from app.auth import auth, authenticate_user, register_user
 from app.extensions import db, login_manager
 from app.models import User
 
 
 @pytest.fixture
-def test_app():
+def auth_app():
     app = Flask(__name__)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
@@ -35,7 +36,7 @@ def test_app():
         db.drop_all()
 
 
-def test_register_user(test_app):
+def test_register_user(auth_app):
     user = register_user(
         email="  ALBERTO@example.com  ",
         password="secret123",
@@ -55,7 +56,7 @@ def test_register_user(test_app):
     assert check_password_hash(saved_user.password_hash, "secret123")
 
 
-def test_register_user_rejects_duplicate_email(test_app):
+def test_register_user_rejects_duplicate_email(auth_app):
     first_user = register_user(
         email="alberto@example.com",
         password="secret123",
@@ -75,7 +76,7 @@ def test_register_user_rejects_duplicate_email(test_app):
     assert len(users) == 1
 
 
-def test_authenticate_user(test_app):
+def test_authenticate_user(auth_app):
     registered_user = register_user(
         email="alberto@example.com",
         password="secret123",
@@ -91,7 +92,7 @@ def test_authenticate_user(test_app):
     assert authenticated_user.id == registered_user.id
 
 
-def test_authenticate_user_rejects_invalid_credentials(test_app):
+def test_authenticate_user_rejects_invalid_credentials(auth_app):
     register_user(
         email="alberto@example.com",
         password="secret123",
@@ -112,14 +113,14 @@ def test_authenticate_user_rejects_invalid_credentials(test_app):
     assert unknown_email is None
 
 
-def test_login_route_creates_session(test_app):
+def test_login_route_creates_session(auth_app):
     registered_user = register_user(
         email="alberto@example.com",
         password="secret123",
         name="Alberto Pastor",
     )
 
-    client = test_app.test_client()
+    client = auth_app.test_client()
 
     response = client.post(
         "/auth/login",
@@ -136,14 +137,14 @@ def test_login_route_creates_session(test_app):
         assert session["_user_id"] == str(registered_user.id)
 
 
-def test_logout_route_clears_session(test_app):
+def test_logout_route_clears_session(auth_app):
     register_user(
         email="alberto@example.com",
         password="secret123",
         name="Alberto Pastor",
     )
 
-    client = test_app.test_client()
+    client = auth_app.test_client()
 
     client.post(
         "/auth/login",
@@ -165,8 +166,8 @@ def test_logout_route_clears_session(test_app):
         assert "_user_id" not in session
 
 
-def test_register_route_creates_user(test_app):
-    client = test_app.test_client()
+def test_register_route_creates_user(auth_app):
+    client = auth_app.test_client()
 
     response = client.post(
         "/auth/register",
@@ -189,14 +190,14 @@ def test_register_route_creates_user(test_app):
     assert check_password_hash(saved_user.password_hash, "secret123")
 
 
-def test_login_route_rejects_invalid_credentials(test_app):
+def test_login_route_rejects_invalid_credentials(auth_app):
     register_user(
         email="alberto@example.com",
         password="secret123",
         name="Alberto Pastor",
     )
 
-    client = test_app.test_client()
+    client = auth_app.test_client()
 
     response = client.post(
         "/auth/login",
@@ -213,8 +214,8 @@ def test_login_route_rejects_invalid_credentials(test_app):
         assert "_user_id" not in session
 
 
-def test_logout_requires_login(test_app):
-    client = test_app.test_client()
+def test_logout_requires_login(auth_app):
+    client = auth_app.test_client()
 
     response = client.get("/auth/logout")
 
@@ -222,14 +223,14 @@ def test_logout_requires_login(test_app):
     assert "/auth/login" in response.headers["Location"]
 
 
-def test_register_route_rejects_duplicate_email(test_app):
+def test_register_route_rejects_duplicate_email(auth_app):
     register_user(
         email="alberto@example.com",
         password="secret123",
         name="Alberto Pastor",
     )
 
-    client = test_app.test_client()
+    client = auth_app.test_client()
 
     response = client.post(
         "/auth/register",
@@ -247,7 +248,7 @@ def test_register_route_rejects_duplicate_email(test_app):
     assert len(users) == 1
 
 
-def test_login_route_redirects_physio_to_dashboard(test_app):
+def test_login_route_redirects_physio_to_dashboard(auth_app):
     physio = register_user(
         email="physio@example.com",
         password="secret123",
@@ -257,7 +258,7 @@ def test_login_route_redirects_physio_to_dashboard(test_app):
     physio.role = "physio"
     db.session.commit()
 
-    client = test_app.test_client()
+    client = auth_app.test_client()
 
     response = client.post(
         "/auth/login",
@@ -269,3 +270,18 @@ def test_login_route_redirects_physio_to_dashboard(test_app):
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/physio/dashboard")
+
+
+@pytest.mark.parametrize("path", ["/auth/login", "/auth/register"])
+@pytest.mark.xfail(
+    raises=TemplateNotFound,
+    strict=True,
+    reason="PS-13 has not added the authentication templates yet.",
+)
+def test_real_app_auth_pages_wait_for_templates(path):
+    app = create_app()
+    app.config["TESTING"] = True
+
+    response = app.test_client().get(path)
+
+    assert response.status_code == 200
