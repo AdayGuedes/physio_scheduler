@@ -1,6 +1,6 @@
 from flask import Flask
 
-from app import models  # noqa: F401 (registra los modelos en db.metadata)
+from app import models  # noqa: F401  (registers models in db.metadata)
 from app.api import api
 from app.auth import auth
 from app.extensions import db, login_manager, migrate
@@ -15,6 +15,7 @@ def create_app():
 
     db.init_app(app)
     login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
     migrate.init_app(app, db)
 
     app.register_blueprint(auth)
