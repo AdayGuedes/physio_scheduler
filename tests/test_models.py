@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -46,8 +46,8 @@ def test_relationship_appointment_client(app):
     appointment_test = Appointment(
         id=1,
         client=user_test,
-        start_time=datetime(2026, 9, 16, 10, 0),
-        end_time=datetime(2026, 9, 16, 10, 30),
+        start_time=datetime(2026, 9, 16, 10, 0, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 16, 10, 30, tzinfo=timezone.utc),
         reason="Tight hamstrings",
         physio_notes="This player had a previous lesson on left hamstring",
         status="confirmed",
