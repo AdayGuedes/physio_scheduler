@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="stylesheet" rel="stylesheet" href="../../static/css/style.css" />
+    />
+
+    <title>New Appointment</title>
+  </head>
+
+  <body>
+    <div class="personal-information">
+      <h1>Personal Information</h1>
+
+      <label for="full-name">Full Name</label>
+      <input
+        type="text"
+        id="full-name"
+        name="full_name"
+        placeholder="Full Name"
+        required
+      />
+
+      <label for="student-id">Student ID</label>
+      <input
+        type="text"
+        id="student-id"
+        name="student_id"
+        placeholder="Student ID"
+        required
+      />
+
+      <label for="email">Email</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        placeholder="email@unionky.edu"
+        required
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="sport-select">Select your sport:</label>
+
+      <select id="sport-select" name="sport" onchange="selecionarEsporte()">
+        <option value="" disabled selected>Select an option...</option>
+
+        <optgroup label="Men's Sports">
+          <option value="mens-baseball">Baseball (Men's)</option>
+          <option value="mens-basketball">Basketball (Men's)</option>
+          <option value="mens-bowling">Bowling (Men's)</option>
+          <option value="mens-cross-country">Cross Country (Men's)</option>
+          <option value="mens-football">Football (Men's)</option>
+          <option value="mens-golf">Golf (Men's)</option>
+          <option value="mens-soccer">Soccer (Men's)</option>
+          <option value="mens-track-field">Track & Field (Men's)</option>
+        </optgroup>
+
+        <optgroup label="Women's Sports">
+          <option value="womens-basketball">Basketball (Women's)</option>
+          <option value="womens-bowling">Bowling (Women's)</option>
+          <option value="womens-cross-country">Cross Country (Women's)</option>
+          <option value="womens-golf">Golf (Women's)</option>
+          <option value="womens-soccer">Soccer (Women's)</option>
+          <option value="womens-softball">Softball (Women's)</option>
+          <option value="womens-track-field">Track & Field (Women's)</option>
+          <option value="womens-volleyball">Volleyball (Women's)</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  </body>
+</html>
