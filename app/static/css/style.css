@@ -4,7 +4,6 @@
     box-sizing: border-box;
 }
 
-
 body {
     background-color: #f5f5f5;
     font-family: Arial, sans-serif;
@@ -15,53 +14,52 @@ body {
 /* ---------------- LOGIN ---------------- */
 
 .divpai {
-    background-color: white;
-    margin-top: 70px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: start;
+    background-color: #f5f5f5;
     min-height: 100vh;
     width: 100%;
-}
-
-
-.divfilho {
-    background-color: white;
-    border-radius: 20px;
-    width: 300px;
-    min-height: 300px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    margin-top: 40px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    padding: 30px 20px;
 }
 
+.divfilho {
+    background-color: white;
+    border-radius: 20px;
+    width: 350px;
+    min-height: 320px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+.logo {
+    margin-bottom: 20px;
+}
 
 .logo img {
-    width: 250px;
+    width: 220px;
+    display: block;
 }
 
-
 form {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-
 h1 {
-    font-size: 32px;
-    color: black;
+    font-size: 30px;
+    color: #222;
     margin-bottom: 20px;
 }
 
-
-input,
-select,
-textarea {
+input {
     width: 100%;
     padding: 12px;
     margin-top: 6px;
@@ -71,28 +69,46 @@ textarea {
     font-size: 15px;
 }
 
-
-input:focus,
-select:focus,
-textarea:focus {
+input:focus {
     outline: none;
     border-color: #f16321;
+    box-shadow: 0 0 0 2px rgba(241, 99, 33, 0.15);
 }
-
 
 .b3 {
+    width: 100%;
     margin-top: 5px;
+    padding: 11px;
     background-color: #f16321;
     color: white;
-    padding: 10px 65px;
-    border-radius: 20px;
+    border-radius: 8px;
     border: none;
     cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
 }
-
 
 .b3:hover {
     background-color: #d95117;
+}
+
+
+/* ---------------- LOGIN ERRORS ---------------- */
+
+.login-errors {
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #ffe5e5;
+    border: 1px solid #ffb3b3;
+    border-radius: 8px;
+}
+
+.login-errors p {
+    margin: 0;
+    color: #c00000;
+    font-size: 14px;
+    text-align: center;
 }
 
 
@@ -103,7 +119,6 @@ textarea:focus {
     padding: 50px 20px;
 }
 
-
 .appointment-container {
     background-color: white;
     max-width: 700px;
@@ -113,13 +128,11 @@ textarea:focus {
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
 }
 
-
 .appointment-container h1 {
     text-align: center;
     color: #f16321;
     margin-bottom: 10px;
 }
-
 
 .page-description {
     text-align: center;
@@ -127,13 +140,11 @@ textarea:focus {
     margin-bottom: 35px;
 }
 
-
 .form-section {
     margin-bottom: 30px;
     padding-bottom: 20px;
     border-bottom: 1px solid #ddd;
 }
-
 
 .form-section h2 {
     font-size: 22px;
@@ -141,20 +152,17 @@ textarea:focus {
     color: #333;
 }
 
-
 .form-section label {
     display: block;
     font-weight: bold;
     margin-bottom: 5px;
 }
 
-
 .form-section input,
 .form-section select,
 .form-section textarea {
     width: 100%;
 }
-
 
 textarea {
     resize: vertical;
@@ -170,7 +178,6 @@ textarea {
     margin-top: 25px;
 }
 
-
 .submit-button,
 .cancel-button {
     padding: 12px 25px;
@@ -180,24 +187,20 @@ textarea {
     font-size: 16px;
 }
 
-
 .submit-button {
     background-color: #f16321;
     color: white;
     flex: 1;
 }
 
-
 .submit-button:hover {
     background-color: #d95117;
 }
-
 
 .cancel-button {
     background-color: #ddd;
     color: #333;
 }
-
 
 .cancel-button:hover {
     background-color: #bbb;
@@ -211,7 +214,6 @@ textarea {
     margin-top: 20px;
     font-weight: bold;
 }
-
 
 #success-message.success {
     color: green;
@@ -228,11 +230,12 @@ textarea {
     left: 20px;
 }
 
-
 .logoU img {
     width: 100%;
     height: 100%;
 }
+
+
 /* ---------------- MY APPOINTMENTS ---------------- */
 
 .appointments-page {
@@ -240,18 +243,15 @@ textarea {
     padding: 50px 20px;
 }
 
-
 .appointments-container {
     max-width: 800px;
     margin: 0 auto;
 }
 
-
 .appointments-container h1 {
     text-align: center;
     color: #f16321;
 }
-
 
 .appointment-card {
     background-color: white;
@@ -261,7 +261,6 @@ textarea {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
 }
 
-
 .appointment-header {
     display: flex;
     justify-content: space-between;
@@ -269,11 +268,9 @@ textarea {
     margin-bottom: 20px;
 }
 
-
 .appointment-header h2 {
     font-size: 20px;
 }
-
 
 .status {
     background-color: #dff5e1;
@@ -284,11 +281,9 @@ textarea {
     font-weight: bold;
 }
 
-
 .appointment-info p {
     margin: 10px 0;
 }
-
 
 .cancel-appointment {
     margin-top: 15px;
@@ -299,17 +294,14 @@ textarea {
     cursor: pointer;
 }
 
-
 .cancel-appointment:hover {
     background-color: #bbb;
 }
-
 
 .no-appointments {
     text-align: center;
     margin-top: 30px;
 }
-
 
 .no-appointments a {
     display: inline-block;

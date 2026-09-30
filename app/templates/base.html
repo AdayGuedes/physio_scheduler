@@ -24,14 +24,16 @@
       <a href="https://www.unionky.edu/" target="_blank">
         <img
           src="https://irp.cdn-website.com/62fe7d2a/files/uploaded/Transparent+Orange+U-c7216038.png"
+          alt="Union College logo"
         />
       </a>
     </div>
 
     <!-- Navigation -->
+    {% block navbar %}
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
       <div class="container">
-        <a class="navbar-brand" href="/">Physio Scheduler</a>
+        <a class="navbar-brand" href="/"> Physio Scheduler </a>
 
         <button
           class="navbar-toggler"
@@ -48,12 +50,13 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             <li class="nav-item">
-              <a class="nav-link" href="/">Home</a>
+              <a class="nav-link" href="/"> Home </a>
             </li>
           </ul>
         </div>
       </div>
     </nav>
+    {% endblock %}
 
     <!-- Main Content -->
     <main class="container py-4">{% block content %} {% endblock %}</main>
