@@ -1,124 +1,322 @@
-body {
-  background-color: white;
-}
-
-.btn-union {
-  background-color: #f16321;
-  color: white;
-  border: none;
-  border-radius: 20px;
-  padding: 10px 30px;
-}
-
-.btn-union:hover {
-  background-color: #d95117;
-}
 * {
-  margin: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
+
+
+body {
+    background-color: #f5f5f5;
+    font-family: Arial, sans-serif;
+    color: #222;
+}
+
+
+/* ---------------- LOGIN ---------------- */
 
 .divpai {
-  background-color: white;
-  margin-top: 70px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: start;
-  height: 100vh;
-  width: 100%;
+    background-color: white;
+    margin-top: 70px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: start;
+    min-height: 100vh;
+    width: 100%;
 }
+
 
 .divfilho {
-  background-color: white;
-  border-radius: 20px;
-  width: 300px;
-  height: 300px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  margin-top: 40px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    background-color: white;
+    border-radius: 20px;
+    width: 300px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 40px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
 }
 
-.general {
-  background-color: white;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+
+.logo img {
+    width: 250px;
 }
 
-.sports-grid {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-
-.sport-card {
-  padding: 10px 20px;
-  border: 2px solid #ddd;
-  background-color: #fff;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.2s ease;
-}
-
-.sport-card.active {
-  border-color: #e65100;
-  background-color: #fff3e0;
-  color: #e65100;
-}
-
-.logoU {
-  width: 40px;
-  height: 40px;
-  position: absolute;
-  top: 20px;
-  left: 20px;
-}
-
-.b4 {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.logoU img {
-  width: 100%;
-  height: 100%;
-}
 
 form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
+
 
 h1 {
-  font-size: 40px;
-  color: black;
+    font-size: 32px;
+    color: black;
+    margin-bottom: 20px;
 }
 
-input {
-  background-color: azure;
-  padding: 10px;
-  margin: 5px;
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 12px;
+    margin-top: 6px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
 }
+
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #f16321;
+}
+
 
 .b3 {
-  margin-top: 5px;
-  background-color: #f16321;
-  padding: 10px 65px;
-  border-radius: 20px;
-  border: none;
+    margin-top: 5px;
+    background-color: #f16321;
+    color: white;
+    padding: 10px 65px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
 }
-.personal-information {
-  display: flex;
-  flex-direction: column;
-  align-items: start;
-  justify-content: center;
+
+
+.b3:hover {
+    background-color: #d95117;
+}
+
+
+/* ---------------- APPOINTMENT PAGE ---------------- */
+
+.appointment-page {
+    min-height: 100vh;
+    padding: 50px 20px;
+}
+
+
+.appointment-container {
+    background-color: white;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+
+.appointment-container h1 {
+    text-align: center;
+    color: #f16321;
+    margin-bottom: 10px;
+}
+
+
+.page-description {
+    text-align: center;
+    color: #666;
+    margin-bottom: 35px;
+}
+
+
+.form-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+
+.form-section h2 {
+    font-size: 22px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+
+.form-section label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+
+.form-section input,
+.form-section select,
+.form-section textarea {
+    width: 100%;
+}
+
+
+textarea {
+    resize: vertical;
+}
+
+
+/* ---------------- BUTTONS ---------------- */
+
+.appointment-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 25px;
+}
+
+
+.submit-button,
+.cancel-button {
+    padding: 12px 25px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+
+.submit-button {
+    background-color: #f16321;
+    color: white;
+    flex: 1;
+}
+
+
+.submit-button:hover {
+    background-color: #d95117;
+}
+
+
+.cancel-button {
+    background-color: #ddd;
+    color: #333;
+}
+
+
+.cancel-button:hover {
+    background-color: #bbb;
+}
+
+
+/* ---------------- SUCCESS MESSAGE ---------------- */
+
+#success-message {
+    text-align: center;
+    margin-top: 20px;
+    font-weight: bold;
+}
+
+
+#success-message.success {
+    color: green;
+}
+
+
+/* ---------------- UNION LOGO ---------------- */
+
+.logoU {
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+}
+
+
+.logoU img {
+    width: 100%;
+    height: 100%;
+}
+/* ---------------- MY APPOINTMENTS ---------------- */
+
+.appointments-page {
+    min-height: 100vh;
+    padding: 50px 20px;
+}
+
+
+.appointments-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+
+.appointments-container h1 {
+    text-align: center;
+    color: #f16321;
+}
+
+
+.appointment-card {
+    background-color: white;
+    padding: 25px;
+    border-radius: 12px;
+    margin-top: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+}
+
+
+.appointment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+
+.appointment-header h2 {
+    font-size: 20px;
+}
+
+
+.status {
+    background-color: #dff5e1;
+    color: #217a2b;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+
+.appointment-info p {
+    margin: 10px 0;
+}
+
+
+.cancel-appointment {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #ddd;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+
+.cancel-appointment:hover {
+    background-color: #bbb;
+}
+
+
+.no-appointments {
+    text-align: center;
+    margin-top: 30px;
+}
+
+
+.no-appointments a {
+    display: inline-block;
+    margin-top: 15px;
+    background-color: #f16321;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
 }
