@@ -1,111 +1,79 @@
-<!doctype html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% block title %}My Appointments - Physio Scheduler{% endblock %}
 
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
+{% block content %}
+<div class="appointments-page">
+  <div class="appointments-container">
+    <h1>My Appointments</h1>
 
-    <title>My Appointments - Physio Scheduler</title>
-</head>
+    <p class="page-description">
+      View and manage your physical therapy appointments.
+    </p>
 
-<body>
+    <div class="appointment-card" id="appointment-card">
+      <div class="appointment-header">
+        <h2>Physical Therapy Appointment</h2>
 
-    <div class="appointments-page">
+        <span class="status">
+          Scheduled
+        </span>
+      </div>
 
-        <div class="appointments-container">
+      <div class="appointment-info">
+        <p>
+          <strong>Student:</strong>
+          <span id="appointment-name"></span>
+        </p>
 
-            <h1>My Appointments</h1>
+        <p>
+          <strong>Date:</strong>
+          <span id="appointment-date-display"></span>
+        </p>
 
-            <p class="page-description">
-                View and manage your physical therapy appointments.
-            </p>
+        <p>
+          <strong>Time:</strong>
+          <span id="appointment-time-display"></span>
+        </p>
 
+        <p>
+          <strong>Sport:</strong>
+          <span id="appointment-sport"></span>
+        </p>
 
-            <div
-                class="appointment-card"
-                id="appointment-card"
-            >
+        <p>
+          <strong>Reason:</strong>
+          <span id="appointment-reason"></span>
+        </p>
 
-                <div class="appointment-header">
+        <p>
+          <strong>Notes:</strong>
+          <span id="appointment-notes"></span>
+        </p>
+      </div>
 
-                    <h2>Physical Therapy Appointment</h2>
-
-                    <span class="status">
-                        Scheduled
-                    </span>
-
-                </div>
-
-
-                <div class="appointment-info">
-
-                    <p>
-                        <strong>Student:</strong>
-                        <span id="appointment-name"></span>
-                    </p>
-
-                    <p>
-                        <strong>Date:</strong>
-                        <span id="appointment-date-display"></span>
-                    </p>
-
-                    <p>
-                        <strong>Time:</strong>
-                        <span id="appointment-time-display"></span>
-                    </p>
-
-                    <p>
-                        <strong>Sport:</strong>
-                        <span id="appointment-sport"></span>
-                    </p>
-
-                    <p>
-                        <strong>Reason:</strong>
-                        <span id="appointment-reason"></span>
-                    </p>
-
-                    <p>
-                        <strong>Notes:</strong>
-                        <span id="appointment-notes"></span>
-                    </p>
-
-                </div>
-
-
-                <button
-                    class="cancel-appointment"
-                    onclick="cancelAppointment()"
-                >
-                    Cancel Appointment
-                </button>
-
-            </div>
-
-
-            <div class="no-appointments" id="no-appointments">
-
-                <p>
-                    You currently have no upcoming appointments.
-                </p>
-
-                <a href="{{ url_for('student.new_appointment') }}">
-                    Schedule a New Appointment
-                </a>
-
-            </div>
-
-        </div>
-
+      <button
+        type="button"
+        class="cancel-appointment"
+        onclick="cancelAppointment()"
+      >
+        Cancel Appointment
+      </button>
     </div>
 
+    <div class="no-appointments" id="no-appointments">
+      <p>
+        You currently have no upcoming appointments.
+      </p>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+      <a href="{{ url_for('student.new_appointment') }}">
+        Schedule a New Appointment
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
 
-</body>
-
-</html>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}

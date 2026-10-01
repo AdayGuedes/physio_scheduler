@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
 
     <title>{% block title %}Physio Scheduler{% endblock %}</title>
 
@@ -20,8 +23,13 @@
   </head>
 
   <body>
+    <!-- Union Logo -->
     <div class="logoU">
-      <a href="https://www.unionky.edu/" target="_blank">
+      <a
+        href="https://www.unionky.edu/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <img
           src="https://irp.cdn-website.com/62fe7d2a/files/uploaded/Transparent+Orange+U-c7216038.png"
           alt="Union College logo"
@@ -33,7 +41,9 @@
     {% block navbar %}
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
       <div class="container">
-        <a class="navbar-brand" href="/"> Physio Scheduler </a>
+        <a class="navbar-brand" href="/">
+          Physio Scheduler
+        </a>
 
         <button
           class="navbar-toggler"
@@ -50,7 +60,9 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             <li class="nav-item">
-              <a class="nav-link" href="/"> Home </a>
+              <a class="nav-link" href="/">
+                Home
+              </a>
             </li>
           </ul>
         </div>
@@ -59,9 +71,16 @@
     {% endblock %}
 
     <!-- Main Content -->
-    <main class="container py-4">{% block content %} {% endblock %}</main>
+    <main class="container py-4">
+      {% block content %}
+      {% endblock %}
+    </main>
 
     <!-- Bootstrap JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Page-specific JavaScript -->
+    {% block scripts %}
+    {% endblock %}
   </body>
 </html>

@@ -1,16 +1,6 @@
 * {
-    margin: 0;
-    padding: 0;
     box-sizing: border-box;
 }
-
-body {
-    background-color: #f5f5f5;
-    font-family: Arial, sans-serif;
-    color: #222;
-}
-
-
 /* ---------------- LOGIN ---------------- */
 
 .divpai {
@@ -46,20 +36,20 @@ body {
     display: block;
 }
 
-form {
+.divfilho form {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-h1 {
+.divfilho h1 {
     font-size: 30px;
     color: #222;
     margin-bottom: 20px;
 }
 
-input {
+.divfilho input {
     width: 100%;
     padding: 12px;
     margin-top: 6px;
@@ -69,7 +59,7 @@ input {
     font-size: 15px;
 }
 
-input:focus {
+.divfilho input:focus {
     outline: none;
     border-color: #f16321;
     box-shadow: 0 0 0 2px rgba(241, 99, 33, 0.15);
@@ -112,11 +102,29 @@ input:focus {
 }
 
 
+/* ---------------- UNION LOGO ---------------- */
+
+.logoU {
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1050;
+}
+
+.logoU img {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+
 /* ---------------- APPOINTMENT PAGE ---------------- */
 
 .appointment-page {
     min-height: 100vh;
-    padding: 50px 20px;
+    padding: 30px 20px;
 }
 
 .appointment-container {
@@ -162,14 +170,28 @@ input:focus {
 .form-section select,
 .form-section textarea {
     width: 100%;
+    padding: 12px;
+    margin-top: 6px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
 }
 
-textarea {
+.form-section input:focus,
+.form-section select:focus,
+.form-section textarea:focus {
+    outline: none;
+    border-color: #f16321;
+    box-shadow: 0 0 0 2px rgba(241, 99, 33, 0.15);
+}
+
+.form-section textarea {
     resize: vertical;
 }
 
 
-/* ---------------- BUTTONS ---------------- */
+/* ---------------- APPOINTMENT BUTTONS ---------------- */
 
 .appointment-buttons {
     display: flex;
@@ -198,12 +220,16 @@ textarea {
 }
 
 .cancel-button {
+    display: inline-block;
+    text-align: center;
+    text-decoration: none;
     background-color: #ddd;
     color: #333;
 }
 
 .cancel-button:hover {
     background-color: #bbb;
+    color: #333;
 }
 
 
@@ -220,27 +246,11 @@ textarea {
 }
 
 
-/* ---------------- UNION LOGO ---------------- */
-
-.logoU {
-    width: 40px;
-    height: 40px;
-    position: absolute;
-    top: 20px;
-    left: 20px;
-}
-
-.logoU img {
-    width: 100%;
-    height: 100%;
-}
-
-
 /* ---------------- MY APPOINTMENTS ---------------- */
 
 .appointments-page {
     min-height: 100vh;
-    padding: 50px 20px;
+    padding: 30px 20px;
 }
 
 .appointments-container {
@@ -251,6 +261,7 @@ textarea {
 .appointments-container h1 {
     text-align: center;
     color: #f16321;
+    margin-bottom: 10px;
 }
 
 .appointment-card {
@@ -289,6 +300,7 @@ textarea {
     margin-top: 15px;
     padding: 10px 20px;
     background-color: #ddd;
+    color: #333;
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -311,4 +323,8 @@ textarea {
     padding: 10px 20px;
     border-radius: 8px;
     text-decoration: none;
+}
+
+.no-appointments a:hover {
+    background-color: #d95117;
 }
