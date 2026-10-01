@@ -2,29 +2,30 @@
 
 {% block title %}Login{% endblock %}
 
-{% block navbar %}{% endblock %}
+{% block navbar %}
+{% endblock %}
 
 {% block content %}
 
-<div class="divpai">
+<div class="login-wrapper">
 
     <div class="logo">
         <img
-            src="https://irp.cdn-website.com/62fe7d2a/files/uploaded/Main_orange-bf00be67.png"
+            src="{{ url_for('static', filename='images/union-logo-U.png') }}"
             alt="Union College logo"
-        >
+        />
     </div>
 
-    <div class="divfilho">
+    <div class="login-card">
 
         <h1>Login</h1>
 
         {% if errors %}
-            <div class="login-errors">
-                {% for error in errors %}
-                    <p>{{ error }}</p>
-                {% endfor %}
-            </div>
+        <div class="login-errors">
+            {% for error in errors %}
+            <p>{{ error }}</p>
+            {% endfor %}
+        </div>
         {% endif %}
 
         <form method="POST" action="{{ url_for('auth.login') }}">
@@ -34,16 +35,19 @@
                 name="email"
                 placeholder="email@unionky.edu"
                 required
-            >
+            />
 
             <input
                 type="password"
                 name="password"
                 placeholder="Password"
                 required
-            >
+            />
 
-            <button type="submit" class="b3">
+            <button
+                type="submit"
+                class="btn-primary-custom"
+            >
                 Continue
             </button>
 
