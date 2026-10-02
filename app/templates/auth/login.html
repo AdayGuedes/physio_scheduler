@@ -1,0 +1,67 @@
+
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block navbar %}
+{% endblock %}
+
+{% block content %}
+
+<div class="login-wrapper">
+
+  <a
+    href="https://www.unionky.edu/"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="login-logo-u"
+  >
+    <img
+      src="{{ url_for('static', filename='images/union-logo-U.png') }}"
+      alt="Union College"
+    />
+  </a>
+
+  <div class="login-card">
+
+    <h1>Login</h1>
+
+    {% if errors %}
+      <div class="login-errors">
+        {% for error in errors %}
+          <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="POST">
+
+      <input
+        type="email"
+        name="email"
+        placeholder="email@unionky.edu"
+        required
+      />
+
+      <input
+        type="password"
+        name="password"
+        placeholder="Password"
+        required
+      />
+
+      <button
+        type="submit"
+        class="btn-primary-custom"
+      >
+        Continue
+      </button>
+
+    </form>
+
+  </div>
+
+</div>
+
+{% endblock %}
+

@@ -259,16 +259,24 @@ def test_login_route_redirects_physio_to_dashboard(auth_app):
     assert response.headers["Location"].endswith("/physio/dashboard")
 
 
-@pytest.mark.parametrize("path", ["/auth/login", "/auth/register"])
-@pytest.mark.xfail(
-    raises=TemplateNotFound,
-    strict=True,
-    reason="PS-13 has not added the authentication templates yet.",
-)
-def test_real_app_auth_pages_wait_for_templates(path):
+def test_real_app_login_page_loads():
     app = create_app()
     app.config["TESTING"] = True
 
-    response = app.test_client().get(path)
+    response = app.test_client().get("/auth/login")
+
+    assert response.status_code == 200
+
+
+@pytest.mark.xfail(
+    raises=TemplateNotFound,
+    strict=True,
+    reason="PS-13 has not added the registration template yet.",
+)
+def test_real_app_register_page_waits_for_template():
+    app = create_app()
+    app.config["TESTING"] = True
+
+    response = app.test_client().get("/auth/register")
 
     assert response.status_code == 200

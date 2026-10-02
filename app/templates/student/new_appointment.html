@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}New Appointment - Physio Scheduler{% endblock %}
+
+{% block content %}
+<div class="appointment-page">
+  <div class="appointment-container">
+    <h1>New Appointment</h1>
+
+    <p class="page-description">
+      Schedule a physical therapy appointment with our team.
+    </p>
+
+    <form id="appointment-form">
+      <!-- Personal Information -->
+      <section class="form-section">
+        <h2>Personal Information</h2>
+
+        <label for="full-name">Full Name</label>
+        <input
+          type="text"
+          id="full-name"
+          name="full_name"
+          placeholder="Enter your full name"
+          required
+        />
+
+        <label for="student-id">Student ID</label>
+        <input
+          type="text"
+          id="student-id"
+          name="student_id"
+          placeholder="Enter your student ID"
+          required
+        />
+
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="email@unionky.edu"
+          required
+        />
+      </section>
+
+      <!-- Sport Information -->
+      <section class="form-section">
+        <h2>Sport Information</h2>
+
+        <label for="sport-select">Select your sport</label>
+
+        <select id="sport-select" name="sport" required>
+          <option value="" disabled selected>Select an option...</option>
+
+          <optgroup label="Men's Sports">
+            <option value="men-baseball">Baseball</option>
+            <option value="men-basketball">Basketball</option>
+            <option value="men-bowling">Bowling</option>
+            <option value="men-cross-country">Cross Country</option>
+            <option value="men-football">Football</option>
+            <option value="men-golf">Golf</option>
+            <option value="men-soccer">Soccer</option>
+            <option value="men-track-field">Track & Field</option>
+          </optgroup>
+
+          <optgroup label="Women's Sports">
+            <option value="women-basketball">Basketball</option>
+            <option value="women-bowling">Bowling</option>
+            <option value="women-cross-country">Cross Country</option>
+            <option value="women-golf">Golf</option>
+            <option value="women-soccer">Soccer</option>
+            <option value="women-softball">Softball</option>
+            <option value="women-track-field">Track & Field</option>
+            <option value="women-volleyball">Volleyball</option>
+          </optgroup>
+        </select>
+      </section>
+
+      <!-- Appointment Information -->
+      <section class="form-section">
+        <h2>Appointment Information</h2>
+
+        <label for="appointment-date">Preferred Date</label>
+
+        <input
+          type="date"
+          id="appointment-date"
+          name="appointment_date"
+          required
+        />
+
+        <label for="appointment-time">Preferred Time</label>
+
+        <select id="appointment-time" name="appointment_time" required>
+          <option value="" disabled selected>Select a time...</option>
+
+          <option value="09:00">9:00 AM</option>
+          <option value="09:30">9:30 AM</option>
+
+          <option value="10:00">10:00 AM</option>
+          <option value="10:30">10:30 AM</option>
+
+          <option value="11:00">11:00 AM</option>
+          <option value="11:30">11:30 AM</option>
+
+          <option value="12:00">12:00 PM</option>
+          <option value="12:30">12:30 PM</option>
+
+          <option value="13:00">1:00 PM</option>
+          <option value="13:30">1:30 PM</option>
+
+          <option value="14:00">2:00 PM</option>
+          <option value="14:30">2:30 PM</option>
+
+          <option value="15:00">3:00 PM</option>
+          <option value="15:30">3:30 PM</option>
+
+          <option value="16:00">4:00 PM</option>
+          <option value="16:30">4:30 PM</option>
+        </select>
+
+        <label for="reason">Reason for Appointment</label>
+
+        <select id="reason" name="reason" required>
+          <option value="" disabled selected>Select a reason...</option>
+
+          <option value="injury">Injury</option>
+          <option value="pain">Pain or discomfort</option>
+          <option value="recovery">Injury recovery</option>
+          <option value="prevention">Injury prevention</option>
+          <option value="evaluation">Physical evaluation</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label for="notes">Additional Notes</label>
+
+        <textarea
+          id="notes"
+          name="notes"
+          placeholder="Describe your injury or any additional information..."
+          rows="5"
+        ></textarea>
+      </section>
+
+      <!-- Buttons -->
+      <div class="appointment-buttons">
+        <a href="{{ url_for('student.appointments') }}" class="cancel-button">
+          Cancel
+        </a>
+
+        <button type="submit" class="submit-button">
+          Schedule Appointment
+        </button>
+      </div>
+
+      <p id="success-message"></p>
+    </form>
+  </div>
+</div>
+{% endblock %} 
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}

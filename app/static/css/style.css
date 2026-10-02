@@ -1,0 +1,357 @@
+
+* {
+    box-sizing: border-box;
+}
+
+
+/* ---------------- LOGIN ---------------- */
+
+.login-wrapper {
+    background-color: #f5f5f5;
+    min-height: 100vh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    position: relative;
+}
+
+.login-logo-u {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+}
+
+.login-logo-u img {
+    width: 40px;
+    height: 40px;
+    display: block;
+}
+
+.login-card {
+    background-color: white;
+    border-radius: 20px;
+    width: 350px;
+    min-height: 320px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+.login-card form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-card h1 {
+    font-size: 30px;
+    color: #222;
+    margin-bottom: 20px;
+}
+
+.login-card input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 6px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.login-card input:focus {
+    outline: none;
+    border-color: #f16321;
+    box-shadow: 0 0 0 2px rgba(241, 99, 33, 0.15);
+}
+
+.btn-primary-custom {
+    width: 100%;
+    margin-top: 5px;
+    padding: 11px;
+    background-color: #f16321;
+    color: white;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.btn-primary-custom:hover {
+    background-color: #d95117;
+}
+
+
+/* ---------------- LOGIN ERRORS ---------------- */
+
+.login-errors {
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #ffe5e5;
+    border: 1px solid #ffb3b3;
+    border-radius: 8px;
+}
+
+.login-errors p {
+    margin: 0;
+    color: #c00000;
+    font-size: 14px;
+    text-align: center;
+}
+
+
+/* ---------------- NAVBAR ---------------- */
+
+.union-logo {
+    width: 40px;
+    height: 40px;
+    display: block;
+}
+
+
+/* ---------------- APPOINTMENT PAGE ---------------- */
+
+.appointment-page {
+    min-height: 100vh;
+    padding: 30px 20px;
+}
+
+.appointment-container {
+    background-color: white;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+.appointment-container h1 {
+    text-align: center;
+    color: #f16321;
+    margin-bottom: 10px;
+}
+
+.page-description {
+    text-align: center;
+    color: #666;
+    margin-bottom: 35px;
+}
+
+.form-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.form-section h2 {
+    font-size: 22px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.form-section label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.form-section input,
+.form-section select,
+.form-section textarea {
+    width: 100%;
+    padding: 12px;
+    margin-top: 6px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.form-section input:focus,
+.form-section select:focus,
+.form-section textarea:focus {
+    outline: none;
+    border-color: #f16321;
+    box-shadow: 0 0 0 2px rgba(241, 99, 33, 0.15);
+}
+
+.form-section textarea {
+    resize: vertical;
+}
+
+
+/* ---------------- APPOINTMENT BUTTONS ---------------- */
+
+.appointment-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 25px;
+}
+
+.submit-button,
+.cancel-button {
+    padding: 12px 25px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.submit-button {
+    background-color: #f16321;
+    color: white;
+    flex: 1;
+}
+
+.submit-button:hover {
+    background-color: #d95117;
+}
+
+.cancel-button {
+    display: inline-block;
+    text-align: center;
+    text-decoration: none;
+    background-color: #ddd;
+    color: #333;
+}
+
+.cancel-button:hover {
+    background-color: #bbb;
+    color: #333;
+}
+
+
+/* ---------------- SUCCESS MESSAGE ---------------- */
+
+#success-message {
+    text-align: center;
+    margin-top: 20px;
+    font-weight: bold;
+}
+
+#success-message.success {
+    color: green;
+}
+
+
+/* ---------------- MY APPOINTMENTS ---------------- */
+
+.appointments-page {
+    min-height: 100vh;
+    padding: 30px 20px;
+}
+
+.appointments-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.appointments-container h1 {
+    text-align: center;
+    color: #f16321;
+    margin-bottom: 10px;
+}
+
+.appointment-card {
+    background-color: white;
+    padding: 25px;
+    border-radius: 12px;
+    margin-top: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+}
+
+.appointment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.appointment-header h2 {
+    font-size: 20px;
+}
+
+.status {
+    background-color: #dff5e1;
+    color: #217a2b;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.appointment-info p {
+    margin: 10px 0;
+}
+
+.cancel-appointment {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #ddd;
+    color: #333;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.cancel-appointment:hover {
+    background-color: #bbb;
+}
+
+.no-appointments {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.no-appointments a {
+    display: inline-block;
+    margin-top: 15px;
+    background-color: #f16321;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+.no-appointments a:hover {
+    background-color: #d95117;
+}
+
+
+/* ---------------- RESPONSIVE ---------------- */
+
+@media (max-width: 600px) {
+    .login-card {
+        width: 100%;
+        max-width: 350px;
+    }
+
+    .appointment-container {
+        padding: 25px 20px;
+    }
+
+    .appointment-buttons {
+        flex-direction: column;
+    }
+
+    .submit-button,
+    .cancel-button {
+        width: 100%;
+    }
+
+    .appointment-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
