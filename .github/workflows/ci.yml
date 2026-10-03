@@ -21,6 +21,11 @@ jobs:
           python-version: "3.11"
       - name: Install Dependencies
         run: pip install -r requirements-dev.txt
+
+      - name: Check migrations match models
+        run: |
+          flask db upgrade
+          flask db check
       - name: Run format script
         run: ./scripts/format.sh --check
       - name: Run lint script
