@@ -47,7 +47,7 @@ write model/DB-level functions)
 
 | Function | Description |
 |---|---|
-| `check_availability(start_time, end_time, requested_resources)` | Central function of the system (physio + equipment availability) |
+| `check_availability(start_time, end_time, requested_resources)` | Checks shared equipment for a time slot; concurrent appointments are allowed |
 | `create_appointment(client_id, start_time, end_time, reason, resources)` | Calls `check_availability` before saving |
 | `cancel_appointment(appointment_id)` | Soft delete of an appointment |
 | `get_appointments_by_client(client_id)` | "My appointments" view for the student |
@@ -263,9 +263,10 @@ No other status change is valid. A cancelled or completed appointment
 **cannot go back** — if there was a mistake, a new appointment is created. This
 greatly simplifies the logic and protects the history.
 
-**Implication for availability:** `check_availability` only counts
-appointments with `status = confirmed` as "busy". Cancelled, completed
-and no-show appointments do not block resources.
+**Implication for availability:** only appointments with `status = confirmed`
+reserve equipment. Cancelled, completed and no-show appointments do not block
+resources. Multiple clients may have appointments at the same time if enough
+equipment is available; an existing appointment does not block the whole slot.
 
 ## 9. Error format for `check_availability`
 
@@ -276,13 +277,6 @@ the messages in the template.
 ```python
 # Successful booking
 {"available": True}
-
-# Physio busy at that time
-{
-    "available": False,
-    "reason": "physio_busy",
-    "message": "The physiotherapist already has an appointment in that time slot."
-}
 
 # Insufficient equipment
 {
@@ -300,9 +294,22 @@ the messages in the template.
 | Field | Type | Always present | Description |
 |---|---|---|---|
 | `available` | `bool` | Yes | `True` if the booking can be made |
-| `reason` | `str` | Only if `available=False` | `physio_busy` or `resource_unavailable` |
+| `reason` | `str` | Only if `available=False` | `resource_unavailable` |
 | `message` | `str` | Only if `available=False` | Readable message to show to the user |
 | `detail` | `dict` | Only if `reason=resource_unavailable` | Which resource fails and how many units remain |
+
+### PS-6 availability input and concurrent appointments
+
+`requested_resources` is a dictionary mapping each `Resource.id` to the
+positive integer quantity needed, for example `{bed.id: 2}`. Use `{}` when
+no equipment is needed. `check_resource_availability` subtracts the peak
+number of units reserved by overlapping **confirmed** appointments; sequential
+bookings are not counted as simultaneous use.
+
+`check_availability` does not reject a time slot simply because another client
+has a confirmed appointment. It checks shared equipment across all concurrent
+appointments instead. Assigning individual physiotherapists to appointments
+is a separate future feature; `Appointment` currently has no `physio_id`.
 
 ## 10. Pending for the next iteration
 
