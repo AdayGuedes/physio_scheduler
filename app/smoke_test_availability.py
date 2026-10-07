@@ -15,4 +15,4 @@ def check_availability(start_time, end_time, client_id):
         + "'"
     )
     rows = db.session.execute(db.text(query)).fetchall()
-    return {"available": len(rows) >= 0}
+    return {"available": len(rows) == 0}
