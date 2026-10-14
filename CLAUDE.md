@@ -79,3 +79,244 @@ before changing names, routes or template variables. Summary:
 - `ci` job: `flask db upgrade && flask db check` (migrations must match models), then
   format check, lint and tests.
 - `claude-review` job: automated PR review. Its rules are in `docs/pr_review_guidelines.md`.
+
+<!-- AVOCODING-CONVENTIONS:BEGIN (managed by avocoding-dev-workflow) -->
+
+> **Avocoding cross-project conventions (mandatory).** This block is managed by
+> the `avocoding-dev-workflow` plugin and applies to every Avocoding project.
+> Do **not** edit it by hand; run `/reset-avocoding-claude` to refresh it. The
+> rules below are binding — apply them in every commit, branch, PR, and
+> changelog entry.
+
+## Language
+
+All code modifications, comments, commit messages, PR titles, PR descriptions,
+issue titles, issue bodies, generated prompts, and any other content written
+into the repository or external tools **must be in English**. This rule is
+independent of the language the user writes to you in — the reply language is
+a per-project decision and lives outside this managed block.
+
+## Jira Language
+
+**Exception to the language rule above:** all content written into Jira (issue summaries, descriptions, comments, and any other text field) must be in **Spanish**. Jira is a shared tool with non-technical stakeholders who work in Spanish.
+
+## Epic Context
+
+When this project takes part in an epic, the epic's documentation does **not**
+live here: it lives once, in a shared context repo mounted as a git submodule at
+`.claude/context/`, under `.claude/context/epics/<EPIC-KEY>-<slug>/`. There you
+find the plan and the canonical decisions (`blueprint.md`), the API and data
+shapes every repo must match (`contracts.md`), and this repo's own share —
+`repos/<this repo>/README.md` plus one file per task under `issues/`.
+
+Rules:
+
+- **Read it before implementing an epic issue**, with the
+  `avocoding-dev-workflow:implement-epic-issue` skill, which loads the right
+  slice in the right order and keeps the work inside the issue's scope.
+- **Record what actually happened** in that task's file when you finish — status,
+  how it was really implemented, deviations from the plan and why, and anything
+  left pending on a human. A dependent task in another repo acts on that record.
+- **Changes to epic documentation are commits in the context repo**, not in this
+  one. The PR body carries the context commit SHA and the record carries the PR
+  number, so the two halves always point at each other.
+- **Never restate a decision's text here.** Cite it (`D11`) and let
+  `blueprint.md` hold the wording — the whole point of the shared repo is that a
+  decision is written once.
+- A plan change that affects other tasks or other repos is not a deviation note:
+  it is a re-alignment, and it goes through `avocoding-dev-workflow:update-epic`.
+
+Projects with no `.claude/context/` submodule simply have no epic documentation;
+nothing above applies to them.
+
+## Comments
+
+Default to writing no comments. Code must be clear enough on its own —
+well-named identifiers, small functions, and obvious structure carry the
+meaning. A comment is only justified when the work is genuinely complex
+or extraordinary: a subtle invariant, a hidden constraint, a workaround
+for a specific bug, a non-obvious performance trade-off, or behaviour
+that would surprise a reader who already understands the surrounding code.
+
+Do **not** explain *what* the code does — the code already does that. Do
+**not** reference the current task, ticket, caller, or change history
+("added for X", "used by Y", "fix for JIRA-123") — that context belongs
+in the commit message or PR description and rots as the codebase evolves.
+If removing the comment would not confuse a future reader, do not write it.
+
+## CHANGELOG
+
+Every Avocoding project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and [Semantic Versioning](https://semver.org/).
+
+### Format
+
+Release entries go under `## [version] - YYYY-MM-DD`. Unreleased work accumulates
+under `## [Unreleased]` until a version is cut. Cutting a release only renames
+that heading to `## [<version>] - <YYYY-MM-DD>` — it never adds, rewrites, or
+summarises entries.
+
+### Change types (use only these headings, omit empty ones)
+
+| Heading | Use for |
+|---------|---------|
+| `### Added` | New features |
+| `### Changed` | Changes to existing functionality |
+| `### Deprecated` | Features that will be removed in a future release |
+| `### Removed` | Features removed in this release |
+| `### Fixed` | Bug fixes |
+| `### Security` | Vulnerability fixes |
+
+### Entry format
+
+A typical entry is a single line with this exact shape:
+
+```
+- [<JIRA-ID>] <short description>
+```
+
+When the change has no Jira issue, use `[NO-REF]` in the issue slot:
+
+```
+- [NO-REF] <short description>
+```
+
+In the rare case the PR had to ship work **outside** the ticket's scope
+to solve it (see "Rules" below), record that extra work as an indented
+sub-bullet under the same `[<JIRA-ID>]` line — never as a second
+top-level line, never to enumerate same-scope deliverables:
+
+```
+- [<JIRA-ID>] <ticket-scope description>
+  - <out-of-scope work description>
+```
+
+### Rules
+
+- Every line — top-level entry or sub-bullet — must be **100 characters
+  or fewer**, counting the leading `- ` (or `  - ` for the sub-bullet)
+  and the `[JIRA-ID]` / `[NO-REF]` prefix when present.
+- Write the description as a short imperative sentence (e.g. "Add driver
+  filter to trip list"). No jargon, no PR numbers as the only context.
+- **Every PR must include a CHANGELOG entry**, including internal changes
+  (refactors, tooling, dependency bumps, config). No PR is exempt.
+- **One line per PR/branch by default.** All deliverables that sit
+  within the ticket's scope collapse into a single line, no matter how
+  many distinct pieces the PR contains. **Never** enumerate same-scope
+  work — neither as multiple `[JIRA-ID]` lines nor as sub-bullets.
+- **A sub-bullet under the same `[JIRA-ID]` is the only way to record a
+  second line, and it is reserved for work that fell outside the
+  ticket's scope** but had to be built to solve it. Apply this test:
+  would that extra work make sense as a standalone PR with its own
+  ticket? If yes, record it as a sub-bullet; if no, it stays in the
+  top-line summary or out of the changelog. Canonical example: a ticket
+  "add realtime notifications" that also required building a new
+  WebSocket module — the notifications go on the top line, the module
+  on the sub-bullet.
+- **Never** open a second `[JIRA-ID]` top-level line: sub-bullets under
+  the same `[JIRA-ID]` cover every legitimate case, and intermediate
+  refactors, per-commit work, or same-scope enumeration are not
+  legitimate cases.
+- **New entries go at the bottom of their section** (append, don't prepend).
+- Update `## [Unreleased]` as part of every PR. Entries accumulate there
+  until a release is cut.
+
+## Definition of Done
+
+A task is complete only when the full test suite is green — pre-existing
+tests included. Tests that fail because of the change are part of the
+change, not a separate problem to defer.
+
+Test failures **do not stop the run**. They are part of the work. The
+iteration procedure lives in the `avocoding-dev-workflow:create-tests`
+skill: author tests, run the targeted set, run the full suite, fix
+failures one at a time. If a single test resists five fix iterations, the
+skill flags it as `severity: "high"` (Definition of Done not met) but the
+run continues — the PR is opened so a human can review the still-failing
+test. Only `critical` failures (tools blocked, permissions denied,
+infrastructure Claude cannot work around) halt the run.
+
+## PR Checklist
+
+Before opening or merging a PR:
+
+- Run the project's lint command — no new issues.
+- Run the project's formatter — code is formatted.
+- Run the project's test suite — new and existing tests pass.
+- Update `CHANGELOG.md` under `## [Unreleased]`.
+- If the repo has `.github/PULL_REQUEST_TEMPLATE.md`, follow it verbatim.
+
+The exact commands (`yarn lint`, `npm test`, `pnpm format`, etc.) live in the
+project-specific sections of this `CLAUDE.md` — use whatever this project
+defines.
+
+## Git Conventions
+
+### Branch naming
+
+Format: `<category>/<reference>/<description>`
+
+| Category | Use for |
+|----------|---------|
+| `feat` | Adding, refactoring, or removing a feature |
+| `fix` | Fixing a bug |
+| `hotfix` | Urgent fix without following the usual process |
+| `release` | Version bumps and release changes |
+
+- **Reference:** Jira issue ID in uppercase (e.g. `JIRA-42`). Use `NO-REF`
+  when there is no Jira issue.
+- **Description:** short kebab-cased summary of the branch purpose.
+
+Examples:
+
+- `feat/JIRA-42/create-new-button-component`
+- `fix/JIRA-342/button-overlap-form-on-mobile`
+- `hotfix/NO-REF/registration-form-not-working`
+
+### Commits
+
+Format: `<category>: <ISSUE-REF> <imperative description>`
+
+| Category | Use for |
+|----------|---------|
+| `feat` | Adding a new feature |
+| `fix` | Fixing a bug |
+| `test` | Adding tests |
+| `refactor` | Code change for performance or readability |
+| `chore` | Everything else (docs, formatting, cleanup) |
+
+Examples:
+
+- `feat: JIRA-1 Add new button component`
+- `fix: JIRA-2 Add stop directive to button to prevent propagation`
+- `refactor: JIRA-3 Rewrite button component in TypeScript`
+- `chore: JIRA-3 Write button documentation`
+
+Use `NO-REF` in the `<ISSUE-REF>` slot when the work has no Jira issue.
+
+### Pull Requests
+
+**Title:** `<ISSUE-ID>: <short description>`
+
+- Example: `JIRA-1: Add new button component`
+- Use `NO-REF` when there is no Jira issue.
+
+**Description:** must include a link to the Jira issue (omit when `NO-REF`):
+
+```
+issue: https://avocoding-solutions.atlassian.net/browse/<JIRA_ISSUE_ID>
+```
+
+If the repo has `.github/PULL_REQUEST_TEMPLATE.md`, use it as the PR body.
+
+**Merge requirements:**
+
+1. All CI checks pass (including tests).
+2. At least one coworker review and approval.
+3. `CHANGELOG.md` updated under `## [Unreleased]`.
+4. Linter passes.
+5. Code is formatted.
+6. All tests pass.
+7. Functional requirements are met.
+
+<!-- AVOCODING-CONVENTIONS:END -->
