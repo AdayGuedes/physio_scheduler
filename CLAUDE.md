@@ -96,10 +96,6 @@ into the repository or external tools **must be in English**. This rule is
 independent of the language the user writes to you in — the reply language is
 a per-project decision and lives outside this managed block.
 
-## Jira Language
-
-**Exception to the language rule above:** all content written into Jira (issue summaries, descriptions, comments, and any other text field) must be in **Spanish**. Jira is a shared tool with non-technical stakeholders who work in Spanish.
-
 ## Epic Context
 
 When this project takes part in an epic, the epic's documentation does **not**
@@ -140,7 +136,7 @@ that would surprise a reader who already understands the surrounding code.
 
 Do **not** explain *what* the code does — the code already does that. Do
 **not** reference the current task, ticket, caller, or change history
-("added for X", "used by Y", "fix for JIRA-123") — that context belongs
+("added for X", "used by Y", "fix for PS-123") — that context belongs
 in the commit message or PR description and rots as the codebase evolves.
 If removing the comment would not confuse a future reader, do not write it.
 
@@ -172,22 +168,16 @@ summarises entries.
 A typical entry is a single line with this exact shape:
 
 ```
-- [<JIRA-ID>] <short description>
+- [PS-X] <short description>
 ```
 
-When the change has no Jira issue, use `[NO-REF]` in the issue slot:
-
-```
-- [NO-REF] <short description>
-```
-
-In the rare case the PR had to ship work **outside** the ticket's scope
+In the rare case the PR had to ship work **outside** the task's scope
 to solve it (see "Rules" below), record that extra work as an indented
-sub-bullet under the same `[<JIRA-ID>]` line — never as a second
+sub-bullet under the same `[PS-X]` line — never as a second
 top-level line, never to enumerate same-scope deliverables:
 
 ```
-- [<JIRA-ID>] <ticket-scope description>
+- [PS-X] <task-scope description>
   - <out-of-scope work description>
 ```
 
@@ -195,7 +185,7 @@ top-level line, never to enumerate same-scope deliverables:
 
 - Every line — top-level entry or sub-bullet — must be **100 characters
   or fewer**, counting the leading `- ` (or `  - ` for the sub-bullet)
-  and the `[JIRA-ID]` / `[NO-REF]` prefix when present.
+  and the `[PS-X]` prefix when present.
 - Write the description as a short imperative sentence (e.g. "Add driver
   filter to trip list"). No jargon, no PR numbers as the only context.
 - **Every PR must include a CHANGELOG entry**, including internal changes
@@ -203,18 +193,18 @@ top-level line, never to enumerate same-scope deliverables:
 - **One line per PR/branch by default.** All deliverables that sit
   within the ticket's scope collapse into a single line, no matter how
   many distinct pieces the PR contains. **Never** enumerate same-scope
-  work — neither as multiple `[JIRA-ID]` lines nor as sub-bullets.
-- **A sub-bullet under the same `[JIRA-ID]` is the only way to record a
+  work — neither as multiple `[PS-X]` lines nor as sub-bullets.
+- **A sub-bullet under the same `[PS-X]` is the only way to record a
   second line, and it is reserved for work that fell outside the
-  ticket's scope** but had to be built to solve it. Apply this test:
+  task's scope** but had to be built to solve it. Apply this test:
   would that extra work make sense as a standalone PR with its own
-  ticket? If yes, record it as a sub-bullet; if no, it stays in the
-  top-line summary or out of the changelog. Canonical example: a ticket
+  task? If yes, record it as a sub-bullet; if no, it stays in the
+  top-line summary or out of the changelog. Canonical example: a task
   "add realtime notifications" that also required building a new
   WebSocket module — the notifications go on the top line, the module
   on the sub-bullet.
-- **Never** open a second `[JIRA-ID]` top-level line: sub-bullets under
-  the same `[JIRA-ID]` cover every legitimate case, and intermediate
+- **Never** open a second `[PS-X]` top-level line: sub-bullets under
+  the same `[PS-X]` cover every legitimate case, and intermediate
   refactors, per-commit work, or same-scope enumeration are not
   legitimate cases.
 - **New entries go at the bottom of their section** (append, don't prepend).
@@ -263,19 +253,18 @@ Format: `<category>/<reference>/<description>`
 | `hotfix` | Urgent fix without following the usual process |
 | `release` | Version bumps and release changes |
 
-- **Reference:** Jira issue ID in uppercase (e.g. `JIRA-42`). Use `NO-REF`
-  when there is no Jira issue.
+- **Reference:** task ID in uppercase (e.g. `PS-42`).
 - **Description:** short kebab-cased summary of the branch purpose.
 
 Examples:
 
-- `feat/JIRA-42/create-new-button-component`
-- `fix/JIRA-342/button-overlap-form-on-mobile`
-- `hotfix/NO-REF/registration-form-not-working`
+- `feat/PS-42/create-new-button-component`
+- `fix/PS-34/button-overlap-form-on-mobile`
+- `hotfix/PS-7/registration-form-not-working`
 
 ### Commits
 
-Format: `<category>: <ISSUE-REF> <imperative description>`
+Format: `<category>: <TASK-ID> <imperative description>`
 
 | Category | Use for |
 |----------|---------|
@@ -287,25 +276,16 @@ Format: `<category>: <ISSUE-REF> <imperative description>`
 
 Examples:
 
-- `feat: JIRA-1 Add new button component`
-- `fix: JIRA-2 Add stop directive to button to prevent propagation`
-- `refactor: JIRA-3 Rewrite button component in TypeScript`
-- `chore: JIRA-3 Write button documentation`
-
-Use `NO-REF` in the `<ISSUE-REF>` slot when the work has no Jira issue.
+- `feat: PS-1 Add new button component`
+- `fix: PS-2 Add stop directive to button to prevent propagation`
+- `refactor: PS-3 Rewrite button component in TypeScript`
+- `chore: PS-3 Write button documentation`
 
 ### Pull Requests
 
-**Title:** `<ISSUE-ID>: <short description>`
+**Title:** `<TASK-ID>: <short description>`
 
-- Example: `JIRA-1: Add new button component`
-- Use `NO-REF` when there is no Jira issue.
-
-**Description:** must include a link to the Jira issue (omit when `NO-REF`):
-
-```
-issue: https://avocoding-solutions.atlassian.net/browse/<JIRA_ISSUE_ID>
-```
+- Example: `PS-1: Add new button component`
 
 If the repo has `.github/PULL_REQUEST_TEMPLATE.md`, use it as the PR body.
 
