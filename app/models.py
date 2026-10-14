@@ -62,7 +62,7 @@ class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     client_id = db.Column(
         db.Integer,
-        db.ForeignKey("users.id", name="fk_appointments_client_id_users"),
+        db.ForeignKey("users.id"),
         nullable=False,
     )
     physio_id = db.Column(

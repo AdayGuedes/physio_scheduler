@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.extensions import db
 from app.models import Resource
 
-resources = [
+INVENTORY_RESOURCES = [
     {"type": "bed", "name": "Bed", "total_quantity": 7},
     {"type": "gameready_feet", "name": "Gameready for feet", "total_quantity": 3},
     {"type": "gameready_thighs", "name": "Gameready for thighs", "total_quantity": 4},
@@ -23,7 +23,7 @@ resources = [
 def seed_inventory():
     result = []
 
-    for resource in resources:
+    for resource in INVENTORY_RESOURCES:
         existing = Resource.query.filter_by(type=resource["type"]).first()
         if existing is not None:
             existing.name = resource["name"]
