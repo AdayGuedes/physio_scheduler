@@ -60,11 +60,7 @@ class Appointment(db.Model):
     __tablename__ = "appointments"
 
     id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.id"),
-        nullable=False,
-    )
+    client_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     physio_id = db.Column(
         db.Integer,
         db.ForeignKey("users.id", name="fk_appointments_physio_id_users"),

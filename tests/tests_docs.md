@@ -1,7 +1,7 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. The suite has 26 tests: 25 pass and 1 is an expected failure (`xfail`).
+it would fail. The suite has 27 tests: 26 pass and 1 is an expected failure (`xfail`).
 
 ```bash
 ./scripts/test.sh                  # whole suite (pytest tests/)
@@ -14,7 +14,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_auth.py` | 13 | Registration, login, logout, redirects |
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
-| `test_seed.py` | 6 | Inventory seed function and `flask seed-inventory` command |
+| `test_seed.py` | 7 | Inventory seed function and `flask seed-inventory` command |
 
 ## Shared fixture: `conftest.py`
 
@@ -189,8 +189,9 @@ These tests use `create_app()` and do not need the `app` fixture.
 ## `test_seed.py`
 
 Tests for `app/seed.py`: the `seed_inventory()` function and the `flask seed-inventory`
-command. `seed_inventory()` only adds or updates `Resource` rows in the session. It never
-commits and never deletes. The command is the one that commits and prints.
+command. `seed_inventory()` only creates the `Resource` rows that are missing and returns
+the ones it created. It never modifies existing rows (the physio may have adjusted their
+quantities), never commits and never deletes. The command is the one that commits and prints.
 
 #### `test_seed_inventory_creates_all_resources`
 - **Setup:** empty database.
@@ -210,16 +211,20 @@ commits and never deletes. The command is the one that commits and prints.
   lookup uses the wrong field), so the second run tries to insert again and raises
   `IntegrityError` (`type` and `name` are unique) or leaves duplicates.
 
-#### `test_seed_inventory_updates_existing_resource`
-- **Setup:** one `heat` resource saved as name `"Heat pack"`, quantity `2`.
+#### `test_seed_inventory_keeps_existing_resource`
+- **Setup:** one `heat` resource saved as name `"Heat pack"`, quantity `2` (values different
+  from the seed data on purpose).
 - **Action:** `seed_inventory()` + `commit()`.
-- **Expected:** the single `heat` row now has name `"Heat packs"` and quantity `10`, and
-  the table has 7 rows in total.
+- **Expected:**
+  - The single `heat` row keeps name `"Heat pack"` and quantity `2`.
+  - The function returns only the 6 resources it created.
+  - The table has 7 rows in total.
 - **Why it can fail:**
-  - The update branch does not copy `name` or `total_quantity` from the seed data.
-  - The update branch creates a new row instead of modifying the existing one
-    (`.one()` fails with `MultipleResultsFound`, or the total is not 7).
-  - The seed values were changed and the test was not updated.
+  - The seed overwrites existing rows (it copies `name` or `total_quantity` from the seed
+    data), which would silently reset quantities the physio adjusted.
+  - The seed creates a second `heat` row instead of skipping it (`.one()` fails with
+    `MultipleResultsFound`, or the total is not 7).
+  - The function returns existing resources too, so the count of created ones is not 6.
 
 #### `test_seed_inventory_raises_on_duplicate_name`
 - **Setup:** an `ice_bath` resource named `"Bed"`, which is the name the seed gives to `bed`.
@@ -243,6 +248,18 @@ commits and never deletes. The command is the one that commits and prints.
   - The command does not call `db.session.commit()`, so the rows disappear after the rollback.
   - The command prints something other than one line per resource.
   - The command raised an error, so the exit code is not `0`.
+
+#### `test_seed_inventory_command_skips_existing_inventory`
+- **Setup:** the command is run once, so the inventory already exists.
+- **Action:** invoke `seed_inventory_command` a second time.
+- **Expected:**
+  - Exit code `0`.
+  - The output contains `Inventory already seeded`.
+  - After `db.session.rollback()` there are still 7 rows (nothing duplicated).
+- **Why it can fail:**
+  - The command prints nothing when no resource is created, so it looks like it did nothing
+    or failed.
+  - The second run creates duplicates or raises an error instead of skipping.
 
 #### `test_seed_inventory_command_fails_on_integrity_error`
 - **Setup:** an `ice_bath` resource named `"Bed"`, which makes the seed fail on a duplicate name.

@@ -28,17 +28,18 @@ def test_seed_inventory_is_idempotent(app):
     assert len({resource.type for resource in resources}) == 7
 
 
-def test_seed_inventory_updates_existing_resource(app):
+def test_seed_inventory_keeps_existing_resource(app):
     db.session.add(Resource(type="heat", name="Heat pack", total_quantity=2))
     db.session.commit()
 
-    seed_inventory()
+    created = seed_inventory()
     db.session.commit()
 
     heat = Resource.query.filter_by(type="heat").one()
 
-    assert heat.name == "Heat packs"
-    assert heat.total_quantity == 10
+    assert heat.name == "Heat pack"
+    assert heat.total_quantity == 2
+    assert len(created) == 6
     assert Resource.query.count() == 7
 
 
@@ -48,6 +49,20 @@ def test_seed_inventory_command_seeds_database(app):
     assert result.exit_code == 0
     assert len(result.output.strip().splitlines()) == 7
     assert "bed, Bed, 7" in result.output
+
+    db.session.rollback()
+
+    assert Resource.query.count() == 7
+
+
+def test_seed_inventory_command_skips_existing_inventory(app):
+    runner = app.test_cli_runner()
+    runner.invoke(seed_inventory_command)
+
+    result = runner.invoke(seed_inventory_command)
+
+    assert result.exit_code == 0
+    assert "Inventory already seeded" in result.output
 
     db.session.rollback()
 

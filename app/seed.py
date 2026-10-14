@@ -25,11 +25,7 @@ def seed_inventory():
 
     for resource in INVENTORY_RESOURCES:
         existing = Resource.query.filter_by(type=resource["type"]).first()
-        if existing is not None:
-            existing.name = resource["name"]
-            existing.total_quantity = resource["total_quantity"]
-            result.append(existing)
-        else:
+        if existing is None:
             new_resource = Resource(
                 type=resource["type"],
                 name=resource["name"],
@@ -49,6 +45,8 @@ def seed_inventory_command():
         db.session.commit()
         for resource in resources_result:
             click.echo(f"{resource.type}, {resource.name}, {resource.total_quantity}")
+        if not resources_result:
+            click.echo("Inventory already seeded: nothing to create.")
     except SQLAlchemyError as error:
         db.session.rollback()
         raise click.ClickException(f"seed-inventory failed:\n {error}")
