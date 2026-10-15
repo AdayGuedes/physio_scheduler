@@ -22,7 +22,7 @@ Any change to this document is discussed in the group chat before being applied.
 |---|---|---|
 | `users` | `id`, `email`, `password_hash`, `name`, `role` | `role` = `physio` \| `client` |
 | `resources` | `id`, `type`, `name`, `total_quantity` | `type` = `bed`, `gameready_feet`, `gameready_thighs`, `compression_lower_body`, `heat`, `cold`, `ice_bath` |
-| `appointments` | `id`, `client_id` (FK → `users.id`), `start_time`, `end_time`, `reason`, `physio_notes`, `status` | Renamed `start`/`end` → `start_time`/`end_time` (SQL reserved words) |
+| `appointments` | `id`, `client_id` (FK → `users.id`), `physio_id` (FK → `users.id`), `start_time`, `end_time`, `reason`, `physio_notes`, `status` | Renamed `start`/`end` → `start_time`/`end_time` (SQL reserved words) |
 | `appointment_resources` | `id`, `appointment_id` (FK → `appointments.id`), `resource_id` (FK → `resources.id`), `quantity` | Junction table |
 
 **Foreign key rule:** `<singular_table>_id`. Watch out for `client_id`: it points to
@@ -47,8 +47,8 @@ write model/DB-level functions)
 
 | Function | Description |
 |---|---|
-| `check_availability(start_time, end_time, requested_resources)` | Central function of the system (physio + equipment availability) |
-| `create_appointment(client_id, start_time, end_time, reason, resources)` | Calls `check_availability` before saving |
+| `check_availability(start_time, end_time, requested_resources, physio_id)` | Checks the assigned physio and shared equipment; concurrent appointments with different physios are allowed |
+| `create_appointment(client_id, physio_id, start_time, end_time, reason, resources)` | Calls `check_availability` with the assigned physio before saving |
 | `cancel_appointment(appointment_id)` | Soft delete of an appointment |
 | `get_appointments_by_client(client_id)` | "My appointments" view for the student |
 | `get_daily_agenda(date)` | Physiotherapist's dashboard |
@@ -263,9 +263,10 @@ No other status change is valid. A cancelled or completed appointment
 **cannot go back** — if there was a mistake, a new appointment is created. This
 greatly simplifies the logic and protects the history.
 
-**Implication for availability:** `check_availability` only counts
-appointments with `status = confirmed` as "busy". Cancelled, completed
-and no-show appointments do not block resources.
+**Implication for availability:** only appointments with `status = confirmed`
+reserve a physio or equipment. Cancelled, completed and no-show appointments
+do not block either. Multiple clients may have appointments at the same time
+if they have different physios and enough equipment is available.
 
 ## 9. Error format for `check_availability`
 
@@ -277,11 +278,12 @@ the messages in the template.
 # Successful booking
 {"available": True}
 
-# Physio busy at that time
+# Physio already has a confirmed overlapping appointment
 {
     "available": False,
     "reason": "physio_busy",
-    "message": "The physiotherapist already has an appointment in that time slot."
+    "message": "Physio is not available at this time.",
+    "detail": {"physio_id": 7}
 }
 
 # Insufficient equipment
@@ -302,7 +304,25 @@ the messages in the template.
 | `available` | `bool` | Yes | `True` if the booking can be made |
 | `reason` | `str` | Only if `available=False` | `physio_busy` or `resource_unavailable` |
 | `message` | `str` | Only if `available=False` | Readable message to show to the user |
-| `detail` | `dict` | Only if `reason=resource_unavailable` | Which resource fails and how many units remain |
+| `detail` | `dict` | Only if `available=False` | The unavailable physio ID, or which resource fails and how many units remain |
+
+### PS-6 availability input and concurrent appointments
+
+`requested_resources` is a dictionary mapping each `Resource.id` to the
+positive integer quantity needed, for example `{bed.id: 2}`. Use `{}` when
+no equipment is needed. `check_resource_availability` subtracts the peak
+number of units reserved by overlapping **confirmed** appointments; sequential
+bookings are not counted as simultaneous use.
+
+`check_availability` requires the assigned `physio_id`. It rejects overlapping
+confirmed appointments for that physio and checks shared equipment across all
+concurrent appointments. Different physios may work at the same time when
+enough equipment is available. Appointments are treated as half-open intervals:
+one may begin exactly when another ends. Both availability functions accept
+only timezone-naive `datetime` values, matching the current database model;
+`check_availability` rejects an unknown `physio_id` or one belonging to a
+client. PS-28 still covers role validation when creating or updating an
+appointment.
 
 ## 10. Pending for the next iteration
 
