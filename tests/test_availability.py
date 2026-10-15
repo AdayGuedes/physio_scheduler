@@ -1,6 +1,6 @@
 # Appointment timestamps are stored as naive datetimes by the current DB model.
 # ruff: noqa: DTZ001
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -69,25 +69,11 @@ def test_overlapping_appointment_without_resources_is_available(app, physio_id):
 
 
 def test_same_physio_cannot_take_overlapping_appointments(app, physio_id):
-    client = User(
-        name="Test Client",
-        email="client@example.com",
-        password_hash="test-hash",
-        role="client",
+    _book_appointment(
+        physio_id,
+        datetime(2030, 1, 15, 10, 0),
+        datetime(2030, 1, 15, 11, 0),
     )
-    db.session.add(client)
-    db.session.flush()
-    db.session.add(
-        Appointment(
-            client_id=client.id,
-            physio_id=physio_id,
-            start_time=datetime(2030, 1, 15, 10, 0),
-            end_time=datetime(2030, 1, 15, 11, 0),
-            reason="Treatment",
-            status="confirmed",
-        )
-    )
-    db.session.commit()
 
     result = check_availability(
         datetime(2030, 1, 15, 10, 30),
@@ -104,29 +90,37 @@ def test_same_physio_cannot_take_overlapping_appointments(app, physio_id):
     }
 
 
+def test_busy_physio_takes_precedence_over_resource_shortage(app, physio_id):
+    bed = Resource(name="Treatment bed", type="bed", total_quantity=1)
+    db.session.add(bed)
+    db.session.commit()
+    _book_appointment(
+        physio_id,
+        datetime(2030, 1, 15, 10, 0),
+        datetime(2030, 1, 15, 11, 0),
+        resource=bed,
+    )
+
+    result = check_availability(
+        datetime(2030, 1, 15, 10, 30),
+        datetime(2030, 1, 15, 11, 30),
+        requested_resources={bed.id: 1},
+        physio_id=physio_id,
+    )
+
+    assert result["reason"] == "physio_busy"
+
+
 @pytest.mark.parametrize(
     "status", ["cancelled_by_client", "cancelled_by_physio", "completed", "no_show"]
 )
 def test_non_confirmed_appointment_does_not_block_physio(app, physio_id, status):
-    client = User(
-        name="Test Client",
-        email="client@example.com",
-        password_hash="test-hash",
-        role="client",
+    _book_appointment(
+        physio_id,
+        datetime(2030, 1, 15, 10, 0),
+        datetime(2030, 1, 15, 11, 0),
+        status=status,
     )
-    db.session.add(client)
-    db.session.flush()
-    db.session.add(
-        Appointment(
-            client_id=client.id,
-            physio_id=physio_id,
-            start_time=datetime(2030, 1, 15, 10, 0),
-            end_time=datetime(2030, 1, 15, 11, 0),
-            reason="Treatment",
-            status=status,
-        )
-    )
-    db.session.commit()
 
     result = check_availability(
         datetime(2030, 1, 15, 10, 30),
@@ -139,25 +133,11 @@ def test_non_confirmed_appointment_does_not_block_physio(app, physio_id, status)
 
 
 def test_adjacent_appointment_does_not_block_physio(app, physio_id):
-    client = User(
-        name="Test Client",
-        email="client@example.com",
-        password_hash="test-hash",
-        role="client",
+    _book_appointment(
+        physio_id,
+        datetime(2030, 1, 15, 10, 0),
+        datetime(2030, 1, 15, 11, 0),
     )
-    db.session.add(client)
-    db.session.flush()
-    db.session.add(
-        Appointment(
-            client_id=client.id,
-            physio_id=physio_id,
-            start_time=datetime(2030, 1, 15, 10, 0),
-            end_time=datetime(2030, 1, 15, 11, 0),
-            reason="Treatment",
-            status="confirmed",
-        )
-    )
-    db.session.commit()
 
     result = check_availability(
         datetime(2030, 1, 15, 11, 0),
@@ -273,6 +253,32 @@ def test_rejects_invalid_time_range(app, physio_id):
         check_availability(start, end, requested_resources={}, physio_id=physio_id)
 
 
+@pytest.mark.parametrize("aware_argument", ["start", "end"])
+def test_rejects_timezone_aware_datetime(app, physio_id, aware_argument):
+    start = datetime(2030, 1, 15, 10, 0)
+    end = datetime(2030, 1, 15, 11, 0)
+    if aware_argument == "start":
+        start = start.replace(tzinfo=timezone.utc)
+    else:
+        end = end.replace(tzinfo=timezone.utc)
+
+    with pytest.raises(
+        ValueError, match="start_time and end_time must be naive datetimes"
+    ):
+        check_availability(start, end, requested_resources={}, physio_id=physio_id)
+
+
+def test_resource_check_rejects_timezone_aware_datetime(app):
+    with pytest.raises(
+        ValueError, match="start_time and end_time must be naive datetimes"
+    ):
+        check_resource_availability(
+            datetime(2030, 1, 15, 10, 0, tzinfo=timezone.utc),
+            datetime(2030, 1, 15, 11, 0, tzinfo=timezone.utc),
+            {},
+        )
+
+
 @pytest.mark.parametrize("invalid_physio_id", [0, -1, True, "1"])
 def test_rejects_invalid_physio_id(app, invalid_physio_id):
     with pytest.raises(ValueError, match="physio_id must be a positive integer"):
@@ -281,6 +287,16 @@ def test_rejects_invalid_physio_id(app, invalid_physio_id):
             datetime(2030, 1, 15, 11, 0),
             requested_resources={},
             physio_id=invalid_physio_id,
+        )
+
+
+def test_rejects_unknown_physio_id(app):
+    with pytest.raises(ValueError, match="Unknown physio id: 999"):
+        check_availability(
+            datetime(2030, 1, 15, 10, 0),
+            datetime(2030, 1, 15, 11, 0),
+            requested_resources={},
+            physio_id=999,
         )
 
 
@@ -300,6 +316,38 @@ def test_rejects_zero_requested_quantity(app, physio_id):
             requested_resources={bed.id: 0},
             physio_id=physio_id,
         )
+
+
+def _book_appointment(
+    physio_id, start_time, end_time, status="confirmed", resource=None
+):
+    client = User(
+        name="Test Client",
+        email=f"client-{physio_id}-{start_time.isoformat()}@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.flush()
+    appointment = Appointment(
+        client_id=client.id,
+        physio_id=physio_id,
+        start_time=start_time,
+        end_time=end_time,
+        reason="Treatment",
+        status=status,
+    )
+    db.session.add(appointment)
+    db.session.flush()
+    if resource is not None:
+        db.session.add(
+            AppointmentResource(
+                appointment_id=appointment.id,
+                resource_id=resource.id,
+                quantity=1,
+            )
+        )
+    db.session.commit()
 
 
 def _book_resource(email, resource, quantity, start_time, end_time, status="confirmed"):
@@ -416,6 +464,36 @@ def test_overlapping_booking_with_exhausted_equipment_is_unavailable(app, physio
             "available_units": 0,
         },
     }
+
+
+def test_different_physios_share_the_same_inventory_pool(app, physio_id):
+    bed = Resource(name="Treatment bed", type="bed", total_quantity=3)
+    db.session.add(bed)
+    db.session.commit()
+    _book_resource(
+        "alex@example.com",
+        bed,
+        1,
+        datetime(2030, 1, 15, 10, 0),
+        datetime(2030, 1, 15, 11, 0),
+    )
+    _book_resource(
+        "sam@example.com",
+        bed,
+        1,
+        datetime(2030, 1, 15, 10, 0),
+        datetime(2030, 1, 15, 11, 0),
+    )
+
+    result = check_availability(
+        datetime(2030, 1, 15, 10, 30),
+        datetime(2030, 1, 15, 11, 30),
+        requested_resources={bed.id: 2},
+        physio_id=physio_id,
+    )
+
+    assert result["reason"] == "resource_unavailable"
+    assert result["detail"]["available_units"] == 1
 
 
 def test_overlapping_bookings_use_cumulative_quantity(app):

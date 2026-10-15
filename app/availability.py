@@ -3,12 +3,14 @@
 from datetime import datetime
 
 from app.extensions import db
-from app.models import Appointment, AppointmentResource, Resource
+from app.models import Appointment, AppointmentResource, Resource, User
 
 
 def _validate_request(start_time, end_time, requested_resources):
     if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
         raise ValueError("start_time and end_time must be datetimes")  # noqa: TRY004
+    if start_time.tzinfo is not None or end_time.tzinfo is not None:
+        raise ValueError("start_time and end_time must be naive datetimes")
     if end_time <= start_time:
         raise ValueError("end_time must be after start_time")
     if not isinstance(requested_resources, dict):
@@ -64,6 +66,13 @@ def _peak_reserved_units(resource_id, start_time, end_time):
 def check_resource_availability(start_time, end_time, requested_resources):
     """Check shared inventory against confirmed, overlapping appointments."""
     _validate_request(start_time, end_time, requested_resources)
+    return _check_resource_availability_validated(
+        start_time, end_time, requested_resources
+    )
+
+
+def _check_resource_availability_validated(start_time, end_time, requested_resources):
+    """Check inventory after the request inputs have been validated."""
 
     for resource_id, requested_quantity in requested_resources.items():
         resource = db.session.get(Resource, resource_id)
@@ -95,6 +104,8 @@ def check_availability(start_time, end_time, requested_resources, physio_id):
     _validate_request(start_time, end_time, requested_resources)
     if not isinstance(physio_id, int) or isinstance(physio_id, bool) or physio_id <= 0:
         raise ValueError("physio_id must be a positive integer")
+    if db.session.get(User, physio_id) is None:
+        raise ValueError(f"Unknown physio id: {physio_id}")
 
     overlapping_appointment = db.session.scalar(
         db.select(Appointment.id)
@@ -114,4 +125,6 @@ def check_availability(start_time, end_time, requested_resources, physio_id):
             "detail": {"physio_id": physio_id},
         }
 
-    return check_resource_availability(start_time, end_time, requested_resources)
+    return _check_resource_availability_validated(
+        start_time, end_time, requested_resources
+    )

@@ -318,7 +318,10 @@ bookings are not counted as simultaneous use.
 confirmed appointments for that physio and checks shared equipment across all
 concurrent appointments. Different physios may work at the same time when
 enough equipment is available. Appointments are treated as half-open intervals:
-one may begin exactly when another ends.
+one may begin exactly when another ends. Both availability functions accept
+only timezone-naive `datetime` values, matching the current database model;
+`check_availability` rejects a `physio_id` that does not exist. Checking that
+the ID belongs to a user with the `physio` role remains in PS-28.
 
 ## 10. Pending for the next iteration
 
