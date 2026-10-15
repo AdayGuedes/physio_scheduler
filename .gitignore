@@ -5,3 +5,4 @@ __pycache__/
 instance/
 *.db
 .DS_Store
+tests/tests_docs_es.md
