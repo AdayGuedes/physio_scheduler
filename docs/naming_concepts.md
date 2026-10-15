@@ -320,8 +320,9 @@ concurrent appointments. Different physios may work at the same time when
 enough equipment is available. Appointments are treated as half-open intervals:
 one may begin exactly when another ends. Both availability functions accept
 only timezone-naive `datetime` values, matching the current database model;
-`check_availability` rejects a `physio_id` that does not exist. Checking that
-the ID belongs to a user with the `physio` role remains in PS-28.
+`check_availability` rejects an unknown `physio_id` or one belonging to a
+client. PS-28 still covers role validation when creating or updating an
+appointment.
 
 ## 10. Pending for the next iteration
 

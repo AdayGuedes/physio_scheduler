@@ -104,7 +104,8 @@ def check_availability(start_time, end_time, requested_resources, physio_id):
     _validate_request(start_time, end_time, requested_resources)
     if not isinstance(physio_id, int) or isinstance(physio_id, bool) or physio_id <= 0:
         raise ValueError("physio_id must be a positive integer")
-    if db.session.get(User, physio_id) is None:
+    physio = db.session.get(User, physio_id)
+    if physio is None or physio.role != "physio":
         raise ValueError(f"Unknown physio id: {physio_id}")
 
     overlapping_appointment = db.session.scalar(

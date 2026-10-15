@@ -300,6 +300,25 @@ def test_rejects_unknown_physio_id(app):
         )
 
 
+def test_rejects_client_id_as_physio(app):
+    client = User(
+        name="Test Client",
+        email="client@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.commit()
+
+    with pytest.raises(ValueError, match=f"Unknown physio id: {client.id}"):
+        check_availability(
+            datetime(2030, 1, 15, 10, 0),
+            datetime(2030, 1, 15, 11, 0),
+            requested_resources={},
+            physio_id=client.id,
+        )
+
+
 def test_rejects_zero_requested_quantity(app, physio_id):
     bed = Resource(
         name="Treatment bed",
