@@ -51,7 +51,6 @@ branch and submitted through its own Pull Request to `main`.
 | PS-1 | `feature/PS-1/database-models` | Create the `User`, `Resource`, `Appointment`, and `AppointmentResource` models. |
 | PS-2 | `feature/PS-2/database-migrations` | Set up and create the database migrations. |
 | PS-3 | `feature/PS-3/inventory-seed` | Create the initial resource inventory seed. |
-| PS-26 | `feature/PS-26/dev-users-seed` | Create a development-only seed for dummy client and physio users. |
 
 ### Backend — Diego
 
