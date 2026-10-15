@@ -22,7 +22,7 @@ Any change to this document is discussed in the group chat before being applied.
 |---|---|---|
 | `users` | `id`, `email`, `password_hash`, `name`, `role` | `role` = `physio` \| `client` |
 | `resources` | `id`, `type`, `name`, `total_quantity` | `type` = `bed`, `gameready_feet`, `gameready_thighs`, `compression_lower_body`, `heat`, `cold`, `ice_bath` |
-| `appointments` | `id`, `client_id` (FK → `users.id`), `start_time`, `end_time`, `reason`, `physio_notes`, `status` | Renamed `start`/`end` → `start_time`/`end_time` (SQL reserved words) |
+| `appointments` | `id`, `client_id` (FK → `users.id`), `physio_id` (FK → `users.id`), `start_time`, `end_time`, `reason`, `physio_notes`, `status` | Renamed `start`/`end` → `start_time`/`end_time` (SQL reserved words) |
 | `appointment_resources` | `id`, `appointment_id` (FK → `appointments.id`), `resource_id` (FK → `resources.id`), `quantity` | Junction table |
 
 **Foreign key rule:** `<singular_table>_id`. Watch out for `client_id`: it points to
@@ -308,8 +308,10 @@ bookings are not counted as simultaneous use.
 
 `check_availability` does not reject a time slot simply because another client
 has a confirmed appointment. It checks shared equipment across all concurrent
-appointments instead. Assigning individual physiotherapists to appointments
-is a separate future feature; `Appointment` currently has no `physio_id`.
+appointments instead. `Appointment` now records the assigned `physio_id`, but
+this function does not yet check whether that particular physio has another
+appointment at the same time. A rule for preventing one physio from handling
+two simultaneous appointments must be agreed before adding that check.
 
 ## 10. Pending for the next iteration
 

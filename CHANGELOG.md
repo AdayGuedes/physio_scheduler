@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-2] Add first database migration and database checks in CI
 - [PS-3] Add physio_id to appointments, its migration and an inventory seed command
   - Add Avocoding conventions to CLAUDE.md
+- [PS-6] Add shared-resource availability checks for concurrent appointments
 
 ### Changed
 

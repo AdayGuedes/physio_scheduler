@@ -23,11 +23,18 @@ def test_overlapping_appointment_without_resources_is_available(app):
         password_hash="test-hash",
         role="client",
     )
-    db.session.add(client)
+    physio = User(
+        name="Morgan",
+        email="morgan@example.com",
+        password_hash="test-hash",
+        role="physio",
+    )
+    db.session.add_all([client, physio])
     db.session.flush()
 
     appointment = Appointment(
         client_id=client.id,
+        physio_id=physio.id,
         start_time=datetime(2030, 1, 15, 10, 0),
         end_time=datetime(2030, 1, 15, 11, 0),
         reason="Treatment",
@@ -166,11 +173,18 @@ def _book_resource(email, resource, quantity, start_time, end_time, status="conf
     client = User(
         name="Test Client", email=email, password_hash="test-hash", role="client"
     )
-    db.session.add(client)
+    physio = User(
+        name="Test Physio",
+        email=f"physio-{email}",
+        password_hash="test-hash",
+        role="physio",
+    )
+    db.session.add_all([client, physio])
     db.session.flush()
 
     appointment = Appointment(
         client_id=client.id,
+        physio_id=physio.id,
         start_time=start_time,
         end_time=end_time,
         reason="Treatment",
