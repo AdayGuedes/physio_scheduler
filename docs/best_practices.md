@@ -51,6 +51,8 @@ branch and submitted through its own Pull Request to `main`.
 | PS-1 | `feature/PS-1/database-models` | Create the `User`, `Resource`, `Appointment`, and `AppointmentResource` models. |
 | PS-2 | `feature/PS-2/database-migrations` | Set up and create the database migrations. |
 | PS-3 | `feature/PS-3/inventory-seed` | Create the initial resource inventory seed. |
+| PS-26 | `feature/PS-26/dev-users-seed` | Create a development-only seed for dummy client and physio users. |
+| PS-27 | `refactor/PS-27/constraint-naming-convention` | Add a `MetaData` naming convention so every constraint is named, and migrate the existing unnamed ones. |
 
 ### Backend — Diego
 
@@ -64,6 +66,7 @@ branch and submitted through its own Pull Request to `main`.
 | PS-9 | `feature/PS-9/calendar-api` | Create the JSON events endpoint for FullCalendar. |
 | PS-10 | `feature/PS-10/backend-security` | Add role permissions, route protection, and validation. |
 | PS-11 | `feature/PS-11/backend-tests` | Add tests for authentication, appointments, availability, permissions, and the API. |
+| PS-28 | `feature/PS-28/appointment-role-validation` | Validate on appointment creation and update that `physio_id` is a physio, `client_id` is a client, and they differ. |
 
 ### Frontend — Vitor
 
