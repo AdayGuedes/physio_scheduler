@@ -8,11 +8,11 @@ from app.models import Appointment, AppointmentResource, Resource
 
 def _validate_request(start_time, end_time, requested_resources):
     if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
-        raise ValueError("start_time and end_time must be datetimes")
+        raise ValueError("start_time and end_time must be datetimes")  # noqa: TRY004
     if end_time <= start_time:
         raise ValueError("end_time must be after start_time")
     if not isinstance(requested_resources, dict):
-        raise ValueError("requested_resources must be a dictionary")
+        raise ValueError("requested_resources must be a dictionary")  # noqa: TRY004
 
     for resource_id, requested_quantity in requested_resources.items():
         if (
@@ -90,6 +90,28 @@ def check_resource_availability(start_time, end_time, requested_resources):
     return {"available": True}
 
 
-def check_availability(start_time, end_time, requested_resources):
-    """Allow simultaneous appointments when enough shared equipment remains."""
+def check_availability(start_time, end_time, requested_resources, physio_id):
+    """Check the assigned physio and shared equipment for the time slot."""
+    _validate_request(start_time, end_time, requested_resources)
+    if not isinstance(physio_id, int) or isinstance(physio_id, bool) or physio_id <= 0:
+        raise ValueError("physio_id must be a positive integer")
+
+    overlapping_appointment = db.session.scalar(
+        db.select(Appointment.id)
+        .where(
+            Appointment.physio_id == physio_id,
+            Appointment.status == "confirmed",
+            Appointment.start_time < end_time,
+            Appointment.end_time > start_time,
+        )
+        .limit(1)
+    )
+    if overlapping_appointment is not None:
+        return {
+            "available": False,
+            "reason": "physio_busy",
+            "message": "Physio is not available at this time.",
+            "detail": {"physio_id": physio_id},
+        }
+
     return check_resource_availability(start_time, end_time, requested_resources)

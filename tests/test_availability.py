@@ -1,3 +1,5 @@
+# Appointment timestamps are stored as naive datetimes by the current DB model.
+# ruff: noqa: DTZ001
 from datetime import datetime
 
 import pytest
@@ -7,16 +9,29 @@ from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
 
-def test_available_when_there_are_no_appointments(app):
+@pytest.fixture
+def physio_id(app):
+    physio = User(
+        name="Candidate Physio",
+        email="candidate-physio@example.com",
+        password_hash="test-hash",
+        role="physio",
+    )
+    db.session.add(physio)
+    db.session.commit()
+    return physio.id
+
+
+def test_available_when_there_are_no_appointments(app, physio_id):
     start = datetime(2030, 1, 15, 10, 0)
     end = datetime(2030, 1, 15, 11, 0)
 
-    result = check_availability(start, end, requested_resources={})
+    result = check_availability(start, end, requested_resources={}, physio_id=physio_id)
 
     assert result == {"available": True}
 
 
-def test_overlapping_appointment_without_resources_is_available(app):
+def test_overlapping_appointment_without_resources_is_available(app, physio_id):
     client = User(
         name="Alex",
         email="alex@example.com",
@@ -47,6 +62,108 @@ def test_overlapping_appointment_without_resources_is_available(app):
         datetime(2030, 1, 15, 10, 30),
         datetime(2030, 1, 15, 11, 30),
         requested_resources={},
+        physio_id=physio_id,
+    )
+
+    assert result == {"available": True}
+
+
+def test_same_physio_cannot_take_overlapping_appointments(app, physio_id):
+    client = User(
+        name="Test Client",
+        email="client@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.flush()
+    db.session.add(
+        Appointment(
+            client_id=client.id,
+            physio_id=physio_id,
+            start_time=datetime(2030, 1, 15, 10, 0),
+            end_time=datetime(2030, 1, 15, 11, 0),
+            reason="Treatment",
+            status="confirmed",
+        )
+    )
+    db.session.commit()
+
+    result = check_availability(
+        datetime(2030, 1, 15, 10, 30),
+        datetime(2030, 1, 15, 11, 30),
+        requested_resources={},
+        physio_id=physio_id,
+    )
+
+    assert result == {
+        "available": False,
+        "reason": "physio_busy",
+        "message": "Physio is not available at this time.",
+        "detail": {"physio_id": physio_id},
+    }
+
+
+@pytest.mark.parametrize(
+    "status", ["cancelled_by_client", "cancelled_by_physio", "completed", "no_show"]
+)
+def test_non_confirmed_appointment_does_not_block_physio(app, physio_id, status):
+    client = User(
+        name="Test Client",
+        email="client@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.flush()
+    db.session.add(
+        Appointment(
+            client_id=client.id,
+            physio_id=physio_id,
+            start_time=datetime(2030, 1, 15, 10, 0),
+            end_time=datetime(2030, 1, 15, 11, 0),
+            reason="Treatment",
+            status=status,
+        )
+    )
+    db.session.commit()
+
+    result = check_availability(
+        datetime(2030, 1, 15, 10, 30),
+        datetime(2030, 1, 15, 11, 30),
+        requested_resources={},
+        physio_id=physio_id,
+    )
+
+    assert result == {"available": True}
+
+
+def test_adjacent_appointment_does_not_block_physio(app, physio_id):
+    client = User(
+        name="Test Client",
+        email="client@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.flush()
+    db.session.add(
+        Appointment(
+            client_id=client.id,
+            physio_id=physio_id,
+            start_time=datetime(2030, 1, 15, 10, 0),
+            end_time=datetime(2030, 1, 15, 11, 0),
+            reason="Treatment",
+            status="confirmed",
+        )
+    )
+    db.session.commit()
+
+    result = check_availability(
+        datetime(2030, 1, 15, 11, 0),
+        datetime(2030, 1, 15, 12, 0),
+        requested_resources={},
+        physio_id=physio_id,
     )
 
     assert result == {"available": True}
@@ -56,7 +173,7 @@ def test_overlapping_appointment_without_resources_is_available(app):
     "status",
     ["cancelled_by_client", "cancelled_by_physio", "completed", "no_show"],
 )
-def test_non_confirmed_appointment_does_not_block_availability(app, status):
+def test_non_confirmed_appointment_does_not_block_availability(app, physio_id, status):
     bed = Resource(name="Treatment bed", type="bed", total_quantity=1)
     db.session.add(bed)
     db.session.commit()
@@ -73,12 +190,13 @@ def test_non_confirmed_appointment_does_not_block_availability(app, status):
         datetime(2030, 1, 15, 10, 30),
         datetime(2030, 1, 15, 11, 30),
         requested_resources={bed.id: 1},
+        physio_id=physio_id,
     )
 
     assert result == {"available": True}
 
 
-def test_appointment_can_start_when_another_ends(app):
+def test_appointment_can_start_when_another_ends(app, physio_id):
     bed = Resource(name="Treatment bed", type="bed", total_quantity=1)
     db.session.add(bed)
     db.session.commit()
@@ -94,12 +212,13 @@ def test_appointment_can_start_when_another_ends(app):
         datetime(2030, 1, 15, 11, 0),
         datetime(2030, 1, 15, 12, 0),
         requested_resources={bed.id: 1},
+        physio_id=physio_id,
     )
 
     assert result == {"available": True}
 
 
-def test_unavailable_when_requested_quantity_exceeds_inventory(app):
+def test_unavailable_when_requested_quantity_exceeds_inventory(app, physio_id):
     bed = Resource(
         name="Treatment bed",
         type="bed",
@@ -112,6 +231,7 @@ def test_unavailable_when_requested_quantity_exceeds_inventory(app):
         datetime(2030, 1, 15, 10, 0),
         datetime(2030, 1, 15, 11, 0),
         requested_resources={bed.id: 2},
+        physio_id=physio_id,
     )
 
     assert result == {
@@ -126,7 +246,7 @@ def test_unavailable_when_requested_quantity_exceeds_inventory(app):
     }
 
 
-def test_available_when_requested_quantity_matches_inventory(app):
+def test_available_when_requested_quantity_matches_inventory(app, physio_id):
     bed = Resource(
         name="Treatment bed",
         type="bed",
@@ -139,20 +259,32 @@ def test_available_when_requested_quantity_matches_inventory(app):
         datetime(2030, 1, 15, 10, 0),
         datetime(2030, 1, 15, 11, 0),
         requested_resources={bed.id: 2},
+        physio_id=physio_id,
     )
 
     assert result == {"available": True}
 
 
-def test_rejects_invalid_time_range(app):
+def test_rejects_invalid_time_range(app, physio_id):
     start = datetime(2030, 1, 15, 11, 0)
     end = datetime(2030, 1, 15, 10, 0)
 
     with pytest.raises(ValueError, match="end_time must be after start_time"):
-        check_availability(start, end, requested_resources={})
+        check_availability(start, end, requested_resources={}, physio_id=physio_id)
 
 
-def test_rejects_zero_requested_quantity(app):
+@pytest.mark.parametrize("invalid_physio_id", [0, -1, True, "1"])
+def test_rejects_invalid_physio_id(app, invalid_physio_id):
+    with pytest.raises(ValueError, match="physio_id must be a positive integer"):
+        check_availability(
+            datetime(2030, 1, 15, 10, 0),
+            datetime(2030, 1, 15, 11, 0),
+            requested_resources={},
+            physio_id=invalid_physio_id,
+        )
+
+
+def test_rejects_zero_requested_quantity(app, physio_id):
     bed = Resource(
         name="Treatment bed",
         type="bed",
@@ -166,6 +298,7 @@ def test_rejects_zero_requested_quantity(app):
             datetime(2030, 1, 15, 10, 0),
             datetime(2030, 1, 15, 11, 0),
             requested_resources={bed.id: 0},
+            physio_id=physio_id,
         )
 
 
@@ -232,7 +365,7 @@ def test_overlapping_confirmed_booking_reduces_available_units(app):
     }
 
 
-def test_overlapping_booking_with_free_equipment_is_available(app):
+def test_overlapping_booking_with_free_equipment_is_available(app, physio_id):
     bed = Resource(name="Treatment bed", type="bed", total_quantity=2)
     db.session.add(bed)
     db.session.commit()
@@ -248,12 +381,13 @@ def test_overlapping_booking_with_free_equipment_is_available(app):
         datetime(2030, 1, 15, 10, 30),
         datetime(2030, 1, 15, 11, 30),
         {bed.id: 1},
+        physio_id=physio_id,
     )
 
     assert result == {"available": True}
 
 
-def test_overlapping_booking_with_exhausted_equipment_is_unavailable(app):
+def test_overlapping_booking_with_exhausted_equipment_is_unavailable(app, physio_id):
     bed = Resource(name="Treatment bed", type="bed", total_quantity=1)
     db.session.add(bed)
     db.session.commit()
@@ -269,6 +403,7 @@ def test_overlapping_booking_with_exhausted_equipment_is_unavailable(app):
         datetime(2030, 1, 15, 10, 30),
         datetime(2030, 1, 15, 11, 30),
         {bed.id: 1},
+        physio_id=physio_id,
     )
 
     assert result == {
