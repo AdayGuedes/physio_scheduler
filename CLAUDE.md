@@ -17,6 +17,7 @@ The physio manages the agenda, clinical notes and inventory.
 - `app/__init__.py` — app factory `create_app()`, registers the four Blueprints
 - `app/extensions.py` — `db`, `login_manager`, `migrate` instances
 - `app/models.py` — `User`, `Resource`, `Appointment`, `AppointmentResource`
+- `app/availability.py` — physio and shared-resource availability checks
 - `app/auth.py`, `app/student.py`, `app/physio.py`, `app/api.py` — Blueprints
 - `app/templates/`, `app/static/` — frontend
 - `migrations/versions/` — Alembic migrations
