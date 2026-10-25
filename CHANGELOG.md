@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-3] Add physio_id to appointments, its migration and an inventory seed command
   - Add Avocoding conventions to CLAUDE.md
 - [PS-6] Add physio and shared-resource availability checks for concurrent appointments
+- [PS-7] Add student appointment booking, personal history and cancellation
 
 ### Changed
 

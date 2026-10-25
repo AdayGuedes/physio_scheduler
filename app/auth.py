@@ -134,8 +134,7 @@ def login():
                     # TODO(PS-8): Use url_for("physio.dashboard") after PS-8.
                     return redirect("/physio/dashboard")
 
-                # TODO(PS-7): Use url_for("student.my_appointments") after PS-7.
-                return redirect("/student/appointments")
+                return redirect(url_for("student.my_appointments"))
 
             errors.append("Invalid email or password.")
 

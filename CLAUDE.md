@@ -18,6 +18,7 @@ The physio manages the agenda, clinical notes and inventory.
 - `app/extensions.py` — `db`, `login_manager`, `migrate` instances
 - `app/models.py` — `User`, `Resource`, `Appointment`, `AppointmentResource`
 - `app/availability.py` — physio and shared-resource availability checks
+- `app/appointments.py` — transactional booking, client appointment queries and cancellation
 - `app/auth.py`, `app/student.py`, `app/physio.py`, `app/api.py` — Blueprints
 - `app/templates/`, `app/static/` — frontend
 - `migrations/versions/` — Alembic migrations

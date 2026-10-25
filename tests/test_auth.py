@@ -6,6 +6,7 @@ from app import create_app
 from app.auth import auth, authenticate_user, register_user
 from app.extensions import db, login_manager
 from app.models import User
+from app.student import student
 
 
 @pytest.fixture
@@ -20,6 +21,7 @@ def auth_app(app):
 
     login_manager.login_view = "auth.login"
     app.register_blueprint(auth)
+    app.register_blueprint(student)
     return app
 
 
