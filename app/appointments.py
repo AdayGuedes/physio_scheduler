@@ -15,6 +15,10 @@ class BookingTransactionError(RuntimeError):
     """Booking cannot safely own the current transaction."""
 
 
+class BookingValidationError(ValueError):
+    """A known booking rule failed, with a message safe to show to clients."""
+
+
 class AvailabilityError(ValueError):
     """The selected physio or equipment is already reserved."""
 
@@ -75,11 +79,13 @@ def create_appointment(client_id, physio_id, start_time, end_time, reason, resou
     try:
         validate_availability_request(start_time, end_time, resources)
         if start_time <= datetime.now():  # noqa: DTZ005 (DB uses local naive times)
-            raise ValueError("Appointments must start in the future.")
+            raise BookingValidationError("Appointments must start in the future.")
         if not isinstance(reason, str) or not reason.strip():
-            raise ValueError("Reason is required.")
+            raise BookingValidationError("Reason is required.")
         if len(reason.strip()) > REASON_MAX_LENGTH:
-            raise ValueError(f"Reason must be {REASON_MAX_LENGTH} characters or fewer.")
+            raise BookingValidationError(
+                f"Reason must be {REASON_MAX_LENGTH} characters or fewer."
+            )
         if type(physio_id) is not int or physio_id <= 0:
             raise ValueError("physio_id must be a positive integer")
         if type(client_id) is not int or client_id <= 0:

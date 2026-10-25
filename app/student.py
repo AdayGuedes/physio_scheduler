@@ -18,6 +18,7 @@ from app.appointments import (
     REASON_MAX_LENGTH,
     AvailabilityError,
     BookingTransactionError,
+    BookingValidationError,
     get_appointments_by_client,
 )
 from app.appointments import cancel_appointment as cancel_booking
@@ -26,6 +27,7 @@ from app.extensions import db
 from app.models import Resource, User
 
 student = Blueprint("student", __name__, url_prefix="/student")
+student.add_url_rule("/appointments", endpoint="appointments", build_only=True)
 
 
 class BookingInputError(ValueError):
@@ -81,7 +83,6 @@ def new_appointment():
     return _booking_form()
 
 
-@student.get("/appointments", endpoint="appointments")
 @student.get("/appointments")
 @login_required
 def my_appointments():
@@ -143,7 +144,7 @@ def create_appointment():
         )
     except AvailabilityError as error:
         return _booking_form([str(error)], 409)
-    except BookingInputError as error:
+    except (BookingInputError, BookingValidationError) as error:
         return _booking_form([str(error)], 400)
     except ValueError:
         return _booking_form(

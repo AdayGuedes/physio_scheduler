@@ -65,6 +65,10 @@ Other future booking/edit workflows must use compatible locking to preserve this
 physio. `cancel_appointment(appointment_id, client_id)` enforces ownership and uses a
 conditional update from `confirmed`, keeping the appointment and resource records.
 Only confirmed appointments reserve capacity, so cancellation releases it immediately.
+Cancellation currently depends on ownership and status, with no time cutoff:
+a confirmed appointment can still be cancelled after its start time. A different
+cancellation deadline needs a confirmed business rule; completed and no-show
+appointments remain protected by the terminal-status check.
 
 Times follow the existing model's naive local-time convention. Configure the server
 with the clinic's timezone; timezone-aware input is rejected rather than silently
@@ -92,6 +96,8 @@ connected to these routes; integrate it under the shared frontend/backend task.
   Remove the fallback once the canonical template is connected in PS-19.
 - `/student/new-appointment` and endpoint `student.appointments` remain compatibility
   aliases for existing links. New links should use the canonical endpoints above.
+  The old list endpoint is build-only: URL generation works, but requests are handled
+  by the single active `student.my_appointments` GET route.
 - `WTF_CSRF_ENABLED` defaults to true. Tests may disable it for focused data checks;
   production forms must include tokens. Separate tests verify enabled CSRF protection.
 

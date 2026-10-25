@@ -518,6 +518,15 @@ def test_existing_templates_and_login_redirect_still_work(student_app, people):
     assert client.get("/student/appointments").status_code == 200
     with student_app.test_request_context():
         assert url_for("student.appointments") == url_for("student.my_appointments")
+    active_rules = [
+        rule
+        for rule in student_app.url_map.iter_rules()
+        if rule.rule == "/student/appointments"
+        and "GET" in rule.methods
+        and not rule.build_only
+    ]
+    assert len(active_rules) == 1
+    assert active_rules[0].endpoint == "student.my_appointments"
 
 
 @pytest.mark.parametrize(
@@ -659,3 +668,36 @@ def test_booking_rejects_sqlite_autocommit(student_app, people):
         assert db.session.scalar(db.select(Appointment)) is None
     finally:
         driver.autocommit = old_mode
+
+
+@pytest.mark.parametrize(
+    "field,value,message",
+    [
+        ("reason", "", "Reason is required."),
+        ("reason", "a" * 501, "Reason must be 500 characters or fewer."),
+        ("start_time", "2000-01-15T10:00", "Appointments must start in the future."),
+    ],
+)
+def test_known_booking_validation_errors_keep_specific_messages(
+    student_app, people, field, value, message
+):
+    data = _form(people)
+    data[field] = value
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments", data=data
+    )
+    assert response.status_code == 400
+    assert message in response.text
+
+
+def test_cancellation_has_no_time_cutoff_for_confirmed_bookings(student_app, people):
+    appointment_id = _saved(people)
+    appointment = db.session.get(Appointment, appointment_id)
+    appointment.start_time = datetime(2000, 1, 15, 10)
+    appointment.end_time = datetime(2000, 1, 15, 11)
+    db.session.commit()
+    response = _login(student_app, people[0][0]).post(
+        f"/student/appointments/{appointment_id}/cancel"
+    )
+    assert response.status_code == 303
+    assert db.session.get(Appointment, appointment_id).status == "cancelled_by_client"

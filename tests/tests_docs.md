@@ -1,8 +1,8 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 153 collected cases (including
-parametrized cases): 152 pass and 1 is an expected failure (`xfail`). Four modern
+it would fail. On Python 3.13 the suite has 157 collected cases (including
+parametrized cases): 156 pass and 1 is an expected failure (`xfail`). Four modern
 sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -18,7 +18,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
 | `test_seed.py` | 7 | Inventory seed function and `flask seed-inventory` command |
-| `test_student.py` | 74 | Student bookings, personal history, cancellation, permissions and concurrent writes |
+| `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
 ## Shared fixture: `conftest.py`
 
@@ -669,6 +669,16 @@ the frontend integration work that remains in PS-19.
 - **Action:** call the service on a SQLite connection with `autocommit=True`.
 - **Expected:** `BookingTransactionError` and no saved appointment.
 - **Why it can fail:** the booking lock is released between checking and saving.
+
+#### `test_known_booking_validation_errors_keep_specific_messages` (3 cases)
+- **Action:** submit an empty/oversized reason or a past start time.
+- **Expected:** 400 with the specific, safe business-validation message.
+- **Why it can fail:** the fallback generic message hides which field needs correction.
+
+#### `test_cancellation_has_no_time_cutoff_for_confirmed_bookings`
+- **Action:** cancel an owned, confirmed booking whose start time is in the past.
+- **Expected:** 303 and status `cancelled_by_client`, matching the current status-based rule.
+- **Why it can fail:** an unconfirmed cancellation deadline is introduced into the workflow.
 
 ---
 
