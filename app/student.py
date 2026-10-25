@@ -14,13 +14,22 @@ from flask_wtf.csrf import generate_csrf, validate_csrf
 from sqlalchemy.exc import SQLAlchemyError
 from wtforms.validators import ValidationError
 
-from app.appointments import AvailabilityError, get_appointments_by_client
+from app.appointments import (
+    REASON_MAX_LENGTH,
+    AvailabilityError,
+    BookingTransactionError,
+    get_appointments_by_client,
+)
 from app.appointments import cancel_appointment as cancel_booking
 from app.appointments import create_appointment as book_appointment
 from app.extensions import db
 from app.models import Resource, User
 
 student = Blueprint("student", __name__, url_prefix="/student")
+
+
+class BookingInputError(ValueError):
+    """A booking field cannot be parsed into the required value."""
 
 
 @student.before_request
@@ -39,6 +48,12 @@ def _check_csrf():
 
 
 def _booking_form(errors=None, status=200):
+    form_data = {
+        key: request.form[key]
+        for key in request.form
+        if key in {"physio_id", "start_time", "end_time", "reason"}
+        or key.startswith("resource_")
+    }
     return (
         render_template(
             "student/new_appointment.html",
@@ -52,6 +67,8 @@ def _booking_form(errors=None, status=200):
             ).all(),
             errors=errors or [],
             csrf_token=generate_csrf(),
+            form_data=form_data,
+            reason_max_length=REASON_MAX_LENGTH,
         ),
         status,
     )
@@ -80,18 +97,36 @@ def _parse_booking_form():
     for key in request.form:
         if key.startswith("resource_"):
             if len(request.form.getlist(key)) != 1:
-                raise ValueError("Duplicate resource quantity.")
-            resource_id = int(key.removeprefix("resource_"))
+                raise BookingInputError("Submit each equipment quantity only once.")
+            try:
+                resource_id = int(key.removeprefix("resource_"))
+            except ValueError:
+                raise BookingInputError("Select valid equipment.") from None
             raw_quantity = request.form[key].strip()
             if raw_quantity in {"", "0"}:
                 continue
             if resource_id in resources:
-                raise ValueError("Duplicate resource id.")
-            resources[resource_id] = int(raw_quantity)
+                raise BookingInputError("Select each piece of equipment only once.")
+            try:
+                resources[resource_id] = int(raw_quantity)
+            except ValueError:
+                raise BookingInputError(
+                    "Enter whole-number equipment quantities."
+                ) from None
+    try:
+        physio_id = int(request.form.get("physio_id", ""))
+    except ValueError:
+        raise BookingInputError("Select a valid physiotherapist.") from None
+    dates = []
+    for field, label in [("start_time", "start"), ("end_time", "end")]:
+        try:
+            dates.append(datetime.fromisoformat(request.form.get(field, "")))
+        except ValueError:
+            raise BookingInputError(f"Enter a valid {label} date and time.") from None
     return (
-        int(request.form.get("physio_id", "")),
-        datetime.fromisoformat(request.form.get("start_time", "")),
-        datetime.fromisoformat(request.form.get("end_time", "")),
+        physio_id,
+        dates[0],
+        dates[1],
         request.form.get("reason", ""),
         resources,
     )
@@ -108,9 +143,20 @@ def create_appointment():
         )
     except AvailabilityError as error:
         return _booking_form([str(error)], 409)
-    except ValueError as error:
+    except BookingInputError as error:
         return _booking_form([str(error)], 400)
-    except SQLAlchemyError:
+    except ValueError:
+        return _booking_form(
+            [
+                (
+                    "Check the selected physiotherapist and equipment, use future local dates "
+                    "with the end after the start, and enter a reason of 1 to "
+                    f"{REASON_MAX_LENGTH} characters."
+                )
+            ],
+            400,
+        )
+    except (SQLAlchemyError, BookingTransactionError):
         db.session.rollback()
         abort(503, description="Unable to save the appointment. Please try again.")
     return redirect(url_for("student.my_appointments"), code=303)

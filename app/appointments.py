@@ -4,9 +4,15 @@ from datetime import datetime
 
 from sqlalchemy.orm import selectinload
 
-from app.availability import _validate_request, check_availability
+from app.availability import check_availability, validate_availability_request
 from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
+
+REASON_MAX_LENGTH = 500
+
+
+class BookingTransactionError(RuntimeError):
+    """Booking cannot safely own the current transaction."""
 
 
 class AvailabilityError(ValueError):
@@ -30,8 +36,21 @@ def get_appointments_by_client(client_id):
 def _lock_booking(physio_id, resources):
     connection = db.session.connection()
     if connection.dialect.name == "sqlite":
-        # SQLite ignores FOR UPDATE; acquire its writer lock before checking stock.
-        connection.exec_driver_sql("BEGIN IMMEDIATE")
+        driver = connection.connection.driver_connection
+        if getattr(driver, "autocommit", None) is True or (
+            driver.isolation_level is None and not driver.in_transaction
+        ):
+            raise BookingTransactionError(
+                "Booking requires transactional SQLite connections."
+            )
+        # A no-op write holds SQLite's writer lock without nesting BEGIN statements,
+        # including when a modern sqlite3 connection already has a read transaction.
+        db.session.execute(
+            db.update(User)
+            .where(User.id == physio_id)
+            .values(id=User.id)
+            .execution_options(synchronize_session=False)
+        )
     else:
         db.session.execute(
             db.select(User.id).where(User.id == physio_id).with_for_update()
@@ -47,15 +66,20 @@ def _lock_booking(physio_id, resources):
 def create_appointment(client_id, physio_id, start_time, end_time, reason, resources):
     """Validate and commit a booking and its equipment as one transaction.
 
-    The caller must not have pending writes in the session. On failure the
+    The caller must finish unrelated writes first. Unflushed changes are rejected
+    without discarding them. On failure after validation, the
     transaction is rolled back, including all appointment-resource rows.
     """
+    if db.session.new or db.session.dirty or db.session.deleted:
+        raise BookingTransactionError("Finish pending database changes before booking.")
     try:
-        _validate_request(start_time, end_time, resources)
+        validate_availability_request(start_time, end_time, resources)
         if start_time <= datetime.now():  # noqa: DTZ005 (DB uses local naive times)
             raise ValueError("Appointments must start in the future.")
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError("Reason is required.")
+        if len(reason.strip()) > REASON_MAX_LENGTH:
+            raise ValueError(f"Reason must be {REASON_MAX_LENGTH} characters or fewer.")
         if type(physio_id) is not int or physio_id <= 0:
             raise ValueError("physio_id must be a positive integer")
         if type(client_id) is not int or client_id <= 0:

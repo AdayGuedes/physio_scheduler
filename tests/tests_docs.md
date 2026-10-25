@@ -1,8 +1,9 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. The suite has 137 collected cases (including parametrized cases):
-136 pass and 1 is an expected failure (`xfail`).
+it would fail. On Python 3.13 the suite has 153 collected cases (including
+parametrized cases): 152 pass and 1 is an expected failure (`xfail`). Four modern
+sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
 ./scripts/test.sh                  # whole suite (pytest tests/)
@@ -17,7 +18,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
 | `test_seed.py` | 7 | Inventory seed function and `flask seed-inventory` command |
-| `test_student.py` | 58 | Student bookings, personal history, cancellation, permissions and concurrent writes |
+| `test_student.py` | 74 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
 ## Shared fixture: `conftest.py`
 
@@ -595,9 +596,9 @@ the frontend integration work that remains in PS-19.
 - **Expected:** generic 503, no internal error detail, and no appointment or allocation rows.
 - **Why it can fail:** the transaction is not rolled back or database details leak to the client.
 
-#### `test_concurrent_bookings_cannot_double_reserve` (2 cases)
+#### `test_concurrent_bookings_cannot_double_reserve` (4 cases)
 - **Action:** start two worker sessions together, competing either for one physio or for
-  the only bed with different physios.
+  the only bed with different physios, in legacy and modern SQLite transaction modes.
 - **Expected:** exactly one succeeds and one reports an availability conflict; one booking remains.
 - **Why it can fail:** availability checks and insertion are not protected by the same lock/transaction.
 
@@ -637,6 +638,37 @@ the frontend integration work that remains in PS-19.
   both the old and canonical list endpoint URLs.
 - **Expected:** both pages return 200; both endpoint names resolve to the same list URL.
 - **Why it can fail:** the fallback template or legacy endpoint alias is missing.
+
+#### `test_parse_errors_are_friendly` (5 cases)
+- **Action:** submit non-parsable physio, datetime, quantity or equipment ID fields.
+- **Expected:** 400 with a readable field-specific message and no Python conversion errors.
+- **Why it can fail:** the route renders raw `int()` or `fromisoformat()` exceptions.
+
+#### `test_failed_booking_preserves_submitted_values` (2 cases)
+- **Action:** submit either an invalid date or an unavailable slot and capture template context.
+- **Expected:** 400/409; `form_data` retains the submitted booking values but excludes
+  the token and forged client ID, and `reason_max_length` is 500.
+- **Why it can fail:** a failure loses input or echoes server-controlled fields.
+
+#### `test_booking_reason_length_limit` (2 cases)
+- **Action:** submit reasons of 500 and 501 characters.
+- **Expected:** 303 with a saved booking at the limit, 400 with no booking above it.
+- **Why it can fail:** the boundary comparison is wrong or long reasons bypass validation.
+
+#### `test_booking_rejects_pending_changes_without_discarding_them` (3 cases)
+- **Action:** call the service with a new, dirty or deleted row pending in its session.
+- **Expected:** `BookingTransactionError`; the caller's pending change remains intact.
+- **Why it can fail:** booking auto-flushes, commits or rolls back unrelated work.
+
+#### `test_booking_works_with_existing_modern_read_transaction`
+- **Action:** use sqlite3 `autocommit=False`, perform a read, then create a booking.
+- **Expected:** the booking commits successfully without a nested transaction error.
+- **Why it can fail:** locking tries to issue `BEGIN` inside an already active transaction.
+
+#### `test_booking_rejects_sqlite_autocommit`
+- **Action:** call the service on a SQLite connection with `autocommit=True`.
+- **Expected:** `BookingTransactionError` and no saved appointment.
+- **Why it can fail:** the booking lock is released between checking and saving.
 
 ---
 

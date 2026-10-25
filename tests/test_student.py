@@ -1,16 +1,21 @@
 # Appointment timestamps follow the database's naive local-time convention.
 # ruff: noqa: DTZ001
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from threading import Barrier
 
 import pytest
-from flask import Flask, g, url_for
+from flask import Flask, g, template_rendered, url_for
 from jinja2 import DictLoader
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.datastructures import MultiDict
 
-from app.appointments import AvailabilityError, create_appointment
+from app.appointments import (
+    AvailabilityError,
+    BookingTransactionError,
+    create_appointment,
+)
 from app.auth import auth
 from app.extensions import db, login_manager
 from app.models import Appointment, AppointmentResource, Resource, User
@@ -360,11 +365,20 @@ def test_booking_database_failure_rolls_back(student_app, people, monkeypatch):
 
 
 @pytest.mark.parametrize("shared_physio", [True, False])
-def test_concurrent_bookings_cannot_double_reserve(tmp_path, shared_physio):
+@pytest.mark.parametrize("transaction_mode", ["legacy", "modern"])
+def test_concurrent_bookings_cannot_double_reserve(
+    tmp_path, shared_physio, transaction_mode
+):
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = (
         "sqlite:///" + (tmp_path / "booking.db").as_posix()
     )
+    if transaction_mode == "modern":
+        if not hasattr(sqlite3, "LEGACY_TRANSACTION_CONTROL"):
+            pytest.skip("Modern sqlite3 transaction control requires Python 3.12+.")
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"autocommit": False}
+        }
     db.init_app(app)
     with app.app_context():
         db.create_all()
@@ -504,3 +518,144 @@ def test_existing_templates_and_login_redirect_still_work(student_app, people):
     assert client.get("/student/appointments").status_code == 200
     with student_app.test_request_context():
         assert url_for("student.appointments") == url_for("student.my_appointments")
+
+
+@pytest.mark.parametrize(
+    "field,message",
+    [
+        ("physio_id", "Select a valid physiotherapist."),
+        ("start_time", "Enter a valid start date and time."),
+        ("end_time", "Enter a valid end date and time."),
+        ("resource_1", "Enter whole-number equipment quantities."),
+        ("resource_wrong", "Select valid equipment."),
+    ],
+)
+def test_parse_errors_are_friendly(student_app, people, field, message):
+    data = _form(people)
+    data[field] = "abc"
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments", data=data
+    )
+    assert response.status_code == 400
+    assert message in response.text
+    assert "invalid literal" not in response.text
+    assert "Invalid isoformat" not in response.text
+
+
+@pytest.mark.parametrize("conflict", [False, True])
+def test_failed_booking_preserves_submitted_values(student_app, people, conflict):
+    contexts = []
+
+    def record_template(sender, template, context, **extra):
+        contexts.append(context)
+
+    client = _login(student_app, people[0][0])
+    data = _form(people)
+    if conflict:
+        _saved(people)
+    else:
+        data["end_time"] = "invalid"
+    data["client_id"] = str(people[0][1])
+    data["csrf_token"] = "do-not-echo"
+    template_rendered.connect(record_template, student_app)
+    try:
+        response = client.post("/student/appointments", data=data)
+    finally:
+        template_rendered.disconnect(record_template, student_app)
+    assert response.status_code == (409 if conflict else 400)
+    assert contexts[-1]["form_data"] == {
+        key: value
+        for key, value in data.items()
+        if key not in {"client_id", "csrf_token"}
+    }
+    assert contexts[-1]["reason_max_length"] == 500
+
+
+@pytest.mark.parametrize("length,status", [(500, 303), (501, 400)])
+def test_booking_reason_length_limit(student_app, people, length, status):
+    data = _form(people)
+    data["reason"] = "a" * length
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments", data=data
+    )
+    assert response.status_code == status
+    saved = db.session.scalar(db.select(Appointment))
+    assert (saved is not None) == (status == 303)
+
+
+@pytest.mark.parametrize("pending", ["new", "dirty", "deleted"])
+def test_booking_rejects_pending_changes_without_discarding_them(
+    student_app, people, pending
+):
+    ids, bed_id = people
+    if pending == "new":
+        db.session.add(
+            User(
+                name="Pending",
+                email="pending@example.com",
+                password_hash="hash",
+                role="client",
+            )
+        )
+    elif pending == "dirty":
+        db.session.get(User, ids[0]).name = "Pending rename"
+    else:
+        db.session.delete(db.session.get(Resource, bed_id))
+    changes = set(getattr(db.session, pending))
+    with pytest.raises(BookingTransactionError, match="Finish pending"):
+        create_appointment(
+            ids[0],
+            ids[2],
+            datetime(2035, 1, 15, 10),
+            datetime(2035, 1, 15, 11),
+            "Treatment",
+            {},
+        )
+    assert set(getattr(db.session, pending)) == changes
+
+
+@pytest.mark.skipif(
+    not hasattr(sqlite3, "LEGACY_TRANSACTION_CONTROL"), reason="Requires Python 3.12+."
+)
+def test_booking_works_with_existing_modern_read_transaction(student_app, people):
+    driver = db.session.connection().connection.driver_connection
+    old_mode = driver.autocommit
+    driver.autocommit = False
+    try:
+        db.session.scalar(db.select(User).where(User.id == people[0][0]))
+        assert driver.in_transaction
+        appointment = create_appointment(
+            people[0][0],
+            people[0][2],
+            datetime(2035, 1, 15, 10),
+            datetime(2035, 1, 15, 11),
+            "Treatment",
+            {},
+        )
+        assert appointment.status == "confirmed"
+        assert db.session.scalar(db.select(Appointment.id)) == appointment.id
+    finally:
+        db.session.rollback()
+        driver.autocommit = old_mode
+
+
+@pytest.mark.skipif(
+    not hasattr(sqlite3, "LEGACY_TRANSACTION_CONTROL"), reason="Requires Python 3.12+."
+)
+def test_booking_rejects_sqlite_autocommit(student_app, people):
+    driver = db.session.connection().connection.driver_connection
+    old_mode = driver.autocommit
+    driver.autocommit = True
+    try:
+        with pytest.raises(BookingTransactionError, match="transactional SQLite"):
+            create_appointment(
+                people[0][0],
+                people[0][2],
+                datetime(2035, 1, 15, 10),
+                datetime(2035, 1, 15, 11),
+                "Treatment",
+                {},
+            )
+        assert db.session.scalar(db.select(Appointment)) is None
+    finally:
+        driver.autocommit = old_mode

@@ -24,7 +24,7 @@ Submit URL-encoded form data, rather than JSON:
 | `physio_id` | `3` | Positive integer; existing user with role `physio` |
 | `start_time` | `2035-01-15T10:00` | Future timezone-naive datetime |
 | `end_time` | `2035-01-15T11:00` | Timezone-naive datetime after start |
-| `reason` | `Knee treatment` | Nonblank text; surrounding spaces are trimmed |
+| `reason` | `Knee treatment` | 1 to 500 characters after trimming surrounding spaces |
 | `resource_<id>` | `resource_1=1` | Positive integer quantity; blank or `0` means not selected |
 | `csrf_token` | Signed token from the rendered page | Required for both POST routes |
 
@@ -43,12 +43,21 @@ Database failures roll back and return a generic 503 without database details.
 `create_appointment(client_id, physio_id, start_time, end_time, reason, resources)`
 validates the client, takes a booking lock, checks availability again and commits the
 appointment and resource allocations together. Failures roll the transaction back.
-Call it without pending writes in the session; it owns the commit/rollback boundary.
+Call it after finishing unrelated writes; it owns the commit/rollback boundary.
+Unflushed new, changed or deleted rows are rejected before validation or locks,
+preserving the caller's pending work. The shared public
+`validate_availability_request()` performs input checks before any booking lock;
+`check_availability()` retains validation for its standalone callers as well.
 
-On the project's SQLite database, `BEGIN IMMEDIATE` serializes writers before the
-availability queries. On row-locking databases the physio and requested resource rows
-are locked in consistent resource-ID order. Concurrency tests use independent sessions
-and a temporary SQLite file for both a shared physio and shared equipment. Other
+On the project's SQLite database, a no-op update of the selected physio row takes
+the writer lock before availability queries, without changing the row's values.
+It uses the existing transaction rather than issuing a nested `BEGIN`, supporting
+legacy sqlite3 transactions and Python 3.12+ `autocommit=False` connections with
+an active read transaction. SQLite autocommit connections are rejected, since a
+lock would otherwise be released before insertion. On row-locking databases the
+physio and requested resource rows are locked in consistent resource-ID order.
+Concurrency tests use independent sessions and a temporary SQLite file for both
+a shared physio and shared equipment in legacy and modern transaction modes. Other
 database engines need their own concurrency verification during production setup.
 Other future booking/edit workflows must use compatible locking to preserve this rule.
 
@@ -68,13 +77,19 @@ The backend is tested independently with small templates. Visual booking is not 
 connected to these routes; integrate it under the shared frontend/backend task.
 
 - The list receives `appointments` and a signed string `csrf_token`.
-- The booking form receives `resources`, `physios`, `errors` and `csrf_token`.
+- The booking form receives `resources`, `physios`, `errors`, `csrf_token`,
+  `form_data` and `reason_max_length` (500). On failure `form_data` retains only
+  booking fields and equipment quantities; it excludes CSRF and owner/status fields.
+- Populate inputs from `form_data` when rendering validation or conflict errors,
+  and set `maxlength="{{ reason_max_length }}"` on a free-text reason input.
+  Parsing errors use readable field-specific messages instead of Python exceptions.
 - Add `<input type="hidden" name="csrf_token" value="{{ csrf_token }}">` to each
   booking/cancellation form, and use the POST URLs above.
 - Render `appointments` from the server and remove the mock-data JavaScript submission
   and cancellation handlers when connecting the real workflow.
 - The canonical list template is `student/my_appointments.html`. Until it exists, the
   route falls back to the current `student/appointments.html`.
+  Remove the fallback once the canonical template is connected in PS-19.
 - `/student/new-appointment` and endpoint `student.appointments` remain compatibility
   aliases for existing links. New links should use the canonical endpoints above.
 - `WTF_CSRF_ENABLED` defaults to true. Tests may disable it for focused data checks;
@@ -93,3 +108,5 @@ git diff --check
 `-m` executes a Python module, `-q` makes pytest output shorter, and
 `-p no:cacheprovider` disables pytest's disk cache. Tests use isolated databases,
 including a temporary file for simultaneous reservations, never the real app database.
+Four modern sqlite3 cases are skipped on Python 3.11, which does not expose
+the `autocommit` connection option; they run on Python 3.12+.
