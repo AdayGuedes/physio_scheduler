@@ -6,7 +6,7 @@ from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
 
-def _validate_request(start_time, end_time, requested_resources):
+def validate_availability_request(start_time, end_time, requested_resources):
     if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
         raise ValueError("start_time and end_time must be datetimes")  # noqa: TRY004
     if start_time.tzinfo is not None or end_time.tzinfo is not None:
@@ -65,7 +65,7 @@ def _peak_reserved_units(resource_id, start_time, end_time):
 
 def check_resource_availability(start_time, end_time, requested_resources):
     """Check shared inventory against confirmed, overlapping appointments."""
-    _validate_request(start_time, end_time, requested_resources)
+    validate_availability_request(start_time, end_time, requested_resources)
     return _check_resource_availability_validated(
         start_time, end_time, requested_resources
     )
@@ -101,7 +101,7 @@ def _check_resource_availability_validated(start_time, end_time, requested_resou
 
 def check_availability(start_time, end_time, requested_resources, physio_id):
     """Check the assigned physio and shared equipment for the time slot."""
-    _validate_request(start_time, end_time, requested_resources)
+    validate_availability_request(start_time, end_time, requested_resources)
     if not isinstance(physio_id, int) or isinstance(physio_id, bool) or physio_id <= 0:
         raise ValueError("physio_id must be a positive integer")
     physio = db.session.get(User, physio_id)
