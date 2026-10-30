@@ -131,8 +131,7 @@ def login():
                 login_user(user)
 
                 if user.role == "physio":
-                    # TODO(PS-8): Use url_for("physio.dashboard") after PS-8.
-                    return redirect("/physio/dashboard")
+                    return redirect(url_for("physio.dashboard"))
 
                 return redirect(url_for("student.my_appointments"))
 

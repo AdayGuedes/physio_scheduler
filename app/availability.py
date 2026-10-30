@@ -31,7 +31,9 @@ def validate_availability_request(start_time, end_time, requested_resources):
             raise ValueError("requested quantity must be positive")
 
 
-def _peak_reserved_units(resource_id, start_time, end_time):
+def _peak_reserved_units(
+    resource_id, start_time, end_time, exclude_appointment_id=None
+):
     """Return the most units booked at once during the requested interval."""
     bookings = db.session.execute(
         db.select(
@@ -45,6 +47,11 @@ def _peak_reserved_units(resource_id, start_time, end_time):
             Appointment.status == "confirmed",
             Appointment.start_time < end_time,
             Appointment.end_time > start_time,
+            (
+                Appointment.id != exclude_appointment_id
+                if exclude_appointment_id is not None
+                else True
+            ),
         )
     )
 
@@ -71,18 +78,22 @@ def check_resource_availability(start_time, end_time, requested_resources):
     )
 
 
-def _check_resource_availability_validated(start_time, end_time, requested_resources):
+def _check_resource_availability_validated(
+    start_time, end_time, requested_resources, exclude_appointment_id=None
+):
     """Check inventory after the request inputs have been validated."""
 
     for resource_id, requested_quantity in requested_resources.items():
-        resource = db.session.get(Resource, resource_id)
+        resource = db.session.get(Resource, resource_id, populate_existing=True)
         if resource is None:
             raise ValueError(f"Unknown resource id: {resource_id}")
 
         available_units = max(
             0,
             resource.total_quantity
-            - _peak_reserved_units(resource_id, start_time, end_time),
+            - _peak_reserved_units(
+                resource_id, start_time, end_time, exclude_appointment_id
+            ),
         )
         if requested_quantity > available_units:
             return {
@@ -99,9 +110,15 @@ def _check_resource_availability_validated(start_time, end_time, requested_resou
     return {"available": True}
 
 
-def check_availability(start_time, end_time, requested_resources, physio_id):
+def check_availability(
+    start_time, end_time, requested_resources, physio_id, *, exclude_appointment_id=None
+):
     """Check the assigned physio and shared equipment for the time slot."""
     validate_availability_request(start_time, end_time, requested_resources)
+    if exclude_appointment_id is not None and (
+        type(exclude_appointment_id) is not int or exclude_appointment_id <= 0
+    ):
+        raise ValueError("exclude_appointment_id must be a positive integer")
     if not isinstance(physio_id, int) or isinstance(physio_id, bool) or physio_id <= 0:
         raise ValueError("physio_id must be a positive integer")
     physio = db.session.get(User, physio_id)
@@ -115,6 +132,11 @@ def check_availability(start_time, end_time, requested_resources, physio_id):
             Appointment.status == "confirmed",
             Appointment.start_time < end_time,
             Appointment.end_time > start_time,
+            (
+                Appointment.id != exclude_appointment_id
+                if exclude_appointment_id is not None
+                else True
+            ),
         )
         .limit(1)
     )
@@ -127,5 +149,5 @@ def check_availability(start_time, end_time, requested_resources, physio_id):
         }
 
     return _check_resource_availability_validated(
-        start_time, end_time, requested_resources
+        start_time, end_time, requested_resources, exclude_appointment_id
     )

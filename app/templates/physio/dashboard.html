@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Physio agenda{% endblock %}
+{% block content %}
+<main class="container py-4">
+  <h1>Your agenda</h1>
+  <nav aria-label="Physio navigation" class="mb-3">
+    <a href="{{ url_for('physio.inventory') }}">Inventory</a> ·
+    <a href="{{ url_for('auth.logout') }}">Log out</a>
+  </nav>
+  <form method="get" action="{{ url_for('physio.dashboard') }}" class="mb-4">
+    <label for="agenda-date">Date</label>
+    <input id="agenda-date" type="date" name="date" value="{{ selected_date.isoformat() }}" required>
+    <label for="agenda-view">View</label>
+    <select id="agenda-view" name="view">
+      {% for value in ['day', 'week', 'month'] %}
+      <option value="{{ value }}" {% if view == value %}selected{% endif %}>{{ value|capitalize }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Show agenda</button>
+  </form>
+  <p>From {{ range_start }} up to (not including) {{ range_end }}.</p>
+  <div class="table-responsive">
+    <table class="table">
+      <caption>Your assigned appointments, including status history</caption>
+      <thead><tr><th scope="col">Start</th><th scope="col">End</th><th scope="col">Student</th><th scope="col">Reason</th><th scope="col">Status</th><th scope="col">Details</th></tr></thead>
+      <tbody>
+      {% for appointment in appointments %}
+        <tr><td>{{ appointment.start_time }}</td><td>{{ appointment.end_time }}</td><td>{{ appointment.client.name }}</td><td>{{ appointment.reason }}</td><td>{{ appointment.status }}</td><td><a href="{{ url_for('physio.appointment_detail', id=appointment.id) }}">Open appointment {{ appointment.id }}</a></td></tr>
+      {% else %}
+        <tr><td colspan="6">No appointments in this period.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+{% endblock %}
