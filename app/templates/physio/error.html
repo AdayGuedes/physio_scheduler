@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Unable to complete the request{% endblock %}
+{% block content %}
+<main class="container py-4">
+  <h1>Unable to complete the request</h1>
+  <div role="alert">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>
+  <p>No changes were saved. Return to the appointment or inventory to try again.</p>
+  <a href="{{ url_for('physio.dashboard') }}">Agenda</a> ·
+  <a href="{{ url_for('physio.inventory') }}">Inventory</a>
+</main>
+{% endblock %}

@@ -6,15 +6,21 @@ from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
 
+class AvailabilityValidationError(ValueError):
+    """Expected invalid scheduling input, distinct from programming errors."""
+
+
 def validate_availability_request(start_time, end_time, requested_resources):
     if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
-        raise ValueError("start_time and end_time must be datetimes")  # noqa: TRY004
+        raise AvailabilityValidationError("start_time and end_time must be datetimes")
     if start_time.tzinfo is not None or end_time.tzinfo is not None:
-        raise ValueError("start_time and end_time must be naive datetimes")
+        raise AvailabilityValidationError(
+            "start_time and end_time must be naive datetimes"
+        )
     if end_time <= start_time:
-        raise ValueError("end_time must be after start_time")
+        raise AvailabilityValidationError("end_time must be after start_time")
     if not isinstance(requested_resources, dict):
-        raise ValueError("requested_resources must be a dictionary")  # noqa: TRY004
+        raise AvailabilityValidationError("requested_resources must be a dictionary")
 
     for resource_id, requested_quantity in requested_resources.items():
         if (
@@ -22,16 +28,18 @@ def validate_availability_request(start_time, end_time, requested_resources):
             or isinstance(resource_id, bool)
             or resource_id <= 0
         ):
-            raise ValueError("resource id must be a positive integer")
+            raise AvailabilityValidationError("resource id must be a positive integer")
         if (
             not isinstance(requested_quantity, int)
             or isinstance(requested_quantity, bool)
             or requested_quantity <= 0
         ):
-            raise ValueError("requested quantity must be positive")
+            raise AvailabilityValidationError("requested quantity must be positive")
 
 
-def _peak_reserved_units(resource_id, start_time, end_time):
+def _peak_reserved_units(
+    resource_id, start_time, end_time, exclude_appointment_id=None
+):
     """Return the most units booked at once during the requested interval."""
     bookings = db.session.execute(
         db.select(
@@ -45,6 +53,11 @@ def _peak_reserved_units(resource_id, start_time, end_time):
             Appointment.status == "confirmed",
             Appointment.start_time < end_time,
             Appointment.end_time > start_time,
+            (
+                Appointment.id != exclude_appointment_id
+                if exclude_appointment_id is not None
+                else True
+            ),
         )
     )
 
@@ -71,18 +84,22 @@ def check_resource_availability(start_time, end_time, requested_resources):
     )
 
 
-def _check_resource_availability_validated(start_time, end_time, requested_resources):
+def _check_resource_availability_validated(
+    start_time, end_time, requested_resources, exclude_appointment_id=None
+):
     """Check inventory after the request inputs have been validated."""
 
     for resource_id, requested_quantity in requested_resources.items():
-        resource = db.session.get(Resource, resource_id)
+        resource = db.session.get(Resource, resource_id, populate_existing=True)
         if resource is None:
-            raise ValueError(f"Unknown resource id: {resource_id}")
+            raise AvailabilityValidationError(f"Unknown resource id: {resource_id}")
 
         available_units = max(
             0,
             resource.total_quantity
-            - _peak_reserved_units(resource_id, start_time, end_time),
+            - _peak_reserved_units(
+                resource_id, start_time, end_time, exclude_appointment_id
+            ),
         )
         if requested_quantity > available_units:
             return {
@@ -99,14 +116,22 @@ def _check_resource_availability_validated(start_time, end_time, requested_resou
     return {"available": True}
 
 
-def check_availability(start_time, end_time, requested_resources, physio_id):
+def check_availability(
+    start_time, end_time, requested_resources, physio_id, *, exclude_appointment_id=None
+):
     """Check the assigned physio and shared equipment for the time slot."""
     validate_availability_request(start_time, end_time, requested_resources)
+    if exclude_appointment_id is not None and (
+        type(exclude_appointment_id) is not int or exclude_appointment_id <= 0
+    ):
+        raise AvailabilityValidationError(
+            "exclude_appointment_id must be a positive integer"
+        )
     if not isinstance(physio_id, int) or isinstance(physio_id, bool) or physio_id <= 0:
-        raise ValueError("physio_id must be a positive integer")
+        raise AvailabilityValidationError("physio_id must be a positive integer")
     physio = db.session.get(User, physio_id)
     if physio is None or physio.role != "physio":
-        raise ValueError(f"Unknown physio id: {physio_id}")
+        raise AvailabilityValidationError(f"Unknown physio id: {physio_id}")
 
     overlapping_appointment = db.session.scalar(
         db.select(Appointment.id)
@@ -115,6 +140,11 @@ def check_availability(start_time, end_time, requested_resources, physio_id):
             Appointment.status == "confirmed",
             Appointment.start_time < end_time,
             Appointment.end_time > start_time,
+            (
+                Appointment.id != exclude_appointment_id
+                if exclude_appointment_id is not None
+                else True
+            ),
         )
         .limit(1)
     )
@@ -127,5 +157,5 @@ def check_availability(start_time, end_time, requested_resources, physio_id):
         }
 
     return _check_resource_availability_validated(
-        start_time, end_time, requested_resources
+        start_time, end_time, requested_resources, exclude_appointment_id
     )

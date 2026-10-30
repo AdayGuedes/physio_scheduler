@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Appointment {{ appointment.id }}{% endblock %}
+{% block content %}
+<main class="container py-4">
+  <h1>Appointment {{ appointment.id }}</h1>
+  <p><a href="{{ url_for('physio.dashboard', date=appointment.start_time.date().isoformat()) }}">Back to agenda</a></p>
+  <dl>
+    <dt>Student</dt><dd>{{ appointment.client.name }}</dd>
+    <dt>Time</dt><dd>{{ appointment.start_time }} — {{ appointment.end_time }}</dd>
+    <dt>Reason</dt><dd>{{ appointment.reason }}</dd>
+    <dt>Status</dt><dd>{{ appointment.status }}</dd>
+  </dl>
+  <h2>Reserved equipment</h2>
+  <ul>{% for allocation in appointment.appointment_resources %}
+    <li>{{ allocation.resource.name }}: {{ allocation.quantity }}</li>
+    {% else %}<li>No equipment reserved.</li>{% endfor %}
+  </ul>
+  {% if appointment.status == 'confirmed' %}
+  <h2>Edit appointment</h2>
+  <form method="post" action="{{ url_for('physio.edit_appointment', id=appointment.id) }}" class="mb-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="resources_present" value="1">
+    <div class="mb-3"><label for="start-time">Start (local time)</label>
+      <input id="start-time" type="datetime-local" step="1" name="start_time" value="{{ appointment.start_time.isoformat() }}" required></div>
+    <div class="mb-3"><label for="end-time">End (local time)</label>
+      <input id="end-time" type="datetime-local" step="1" name="end_time" value="{{ appointment.end_time.isoformat() }}" required></div>
+    <div class="mb-3"><label for="reason">Reason</label>
+      <textarea id="reason" name="reason" maxlength="{{ reason_max_length }}" required>{{ appointment.reason }}</textarea></div>
+    <fieldset class="mb-3"><legend>Equipment (zero releases the resource)</legend>
+      {% for resource in resources %}
+      {% set selected = appointment.appointment_resources|selectattr('resource_id', 'equalto', resource.id)|list %}
+      <div><label for="resource-{{ resource.id }}">{{ resource.name }}</label>
+        <input id="resource-{{ resource.id }}" type="number" min="0" max="{{ resource.total_quantity }}" name="resource_{{ resource.id }}" value="{{ selected[0].quantity if selected else 0 }}"></div>
+      {% endfor %}
+    </fieldset>
+    <button type="submit" class="btn btn-primary">Save appointment</button>
+  </form>
+  <h2>Change status</h2>
+  <form method="post" action="{{ url_for('physio.edit_appointment', id=appointment.id) }}" class="mb-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="status">New status (final; cannot be reversed)</label>
+    <select id="status" name="status">
+      {% for status in statuses if status != 'confirmed' %}<option value="{{ status }}">{{ status|replace('_', ' ') }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn btn-warning">Update status</button>
+  </form>
+  {% endif %}
+  <h2>Clinical notes</h2>
+  <form method="post" action="{{ url_for('physio.update_notes', id=appointment.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="notes">Notes (only accessible to the assigned physiotherapist)</label>
+    <textarea id="notes" name="notes" maxlength="{{ notes_max_length }}" class="form-control mb-3">{{ appointment.physio_notes or '' }}</textarea>
+    <button type="submit" class="btn btn-primary">Save notes</button>
+  </form>
+</main>
+{% endblock %}

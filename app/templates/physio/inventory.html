@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Shared inventory{% endblock %}
+{% block content %}
+<main class="container py-4">
+  <h1>Shared inventory</h1>
+  <p><a href="{{ url_for('physio.dashboard') }}">Back to agenda</a></p>
+  <p>Changes apply to every physiotherapist. Existing reservations must still fit.</p>
+  {% for resource in resources %}
+  <section class="mb-4" aria-labelledby="resource-title-{{ resource.id }}">
+    <h2 id="resource-title-{{ resource.id }}">{{ resource.name }}</h2>
+    <form method="post" action="{{ url_for('physio.update_resource', id=resource.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="quantity-{{ resource.id }}">Total quantity</label>
+      <input id="quantity-{{ resource.id }}" type="number" min="1" max="{{ max_quantity }}" name="total_quantity" value="{{ resource.total_quantity }}" required>
+      <button type="submit" class="btn btn-primary">Save {{ resource.name }}</button>
+    </form>
+  </section>
+  {% else %}<p>No resources have been added yet.</p>{% endfor %}
+</main>
+{% endblock %}

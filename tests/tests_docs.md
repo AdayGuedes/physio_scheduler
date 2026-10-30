@@ -1,8 +1,8 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 157 collected cases (including
-parametrized cases): 156 pass and 1 is an expected failure (`xfail`). Four modern
+it would fail. On Python 3.13 the suite has 272 collected cases (including
+parametrized cases): 271 pass and 1 is an expected failure (`xfail`). Eight modern
 sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -17,6 +17,8 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
+| `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
+| `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 7 | Inventory seed function and `flask seed-inventory` command |
 | `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
@@ -679,6 +681,243 @@ the frontend integration work that remains in PS-19.
 - **Action:** cancel an owned, confirmed booking whose start time is in the past.
 - **Expected:** 303 and status `cancelled_by_client`, matching the current status-based rule.
 - **Why it can fail:** an unconfirmed cancellation deadline is introduced into the workflow.
+
+---
+
+## `test_physio.py`
+
+`physio_app` extends the isolated shared app, registers auth/physio and loads
+the real templates from `app/templates/`. It disables CSRF only for focused
+tests; the dedicated token tests enable it. `people` creates a client, two
+physios and two beds. `_saved` creates appointment history; `_login` simulates
+a signed-in browser. See [the management contract](../docs/physio_management.md).
+
+#### `test_dashboard_requires_login`
+- **Action:** anonymously request `/physio/dashboard`.
+- **Expected:** 302 to login.
+- **Why it can fail:** the route is missing or not protected.
+
+#### `test_all_physio_routes_require_login` (6 cases)
+- **Action:** request every GET/POST route without a session.
+- **Expected:** 302 to login, even when the target record does not exist.
+- **Why it can fail:** one route bypasses authentication.
+
+#### `test_clients_cannot_use_physio_routes` (6 cases)
+- **Action:** request all six routes with a client account.
+- **Expected:** 403 on each route, with no data changes.
+- **Why it can fail:** the blueprint role check is missing.
+
+#### `test_dashboard_filters_by_day_and_physio_and_sorts`
+- **Setup:** another physio's booking, a different day and out-of-order own history.
+- **Expected:** only this physio's appointments on the selected day, chronologically
+  sorted; `selected_date` is a date object and client information renders.
+- **Why it can fail:** date, ownership, order or template-context filtering changed.
+
+#### `test_dashboard_range_views` (2 cases)
+- **Action:** request week and month views with appointments inside/outside the range.
+- **Expected:** only appointments inside the selected calendar range render.
+- **Why it can fail:** calendar boundaries or view selection are wrong.
+
+#### `test_dashboard_rejects_invalid_filters` (4 cases)
+- **Action:** submit malformed, impossible or overflowing dates or an unknown view.
+- **Expected:** 400 rather than a server exception.
+- **Why it can fail:** input parsing or date arithmetic is not guarded.
+
+#### `test_empty_dashboard_and_inventory_load`
+- **Action:** open a dashboard with no appointments and the shared inventory.
+- **Expected:** both real pages return 200.
+- **Why it can fail:** an empty agenda causes an error or templates are missing.
+
+#### `test_other_physios_appointments_are_hidden` (3 cases)
+- **Action:** view, edit or annotate another physio's appointment.
+- **Expected:** 404 on each route.
+- **Why it can fail:** ownership is not included in record lookup.
+
+#### `test_detail_displays_client_and_equipment`
+- **Action:** open an owned appointment.
+- **Expected:** 200 with the student name and reserved equipment.
+- **Why it can fail:** relationship loading or the detail context is incomplete.
+
+#### `test_edit_ignores_identity_fields_and_does_not_conflict_with_itself`
+- **Action:** edit only the reason while submitting forged client, physio and notes.
+- **Expected:** 303; reason is trimmed, identity/notes stay unchanged and existing
+  equipment remains. The appointment does not block itself in availability.
+- **Why it can fail:** mass assignment, omitted-field handling or self-exclusion is wrong.
+
+#### `test_reschedule_conflicts_roll_back` (2 cases)
+- **Action:** move an appointment into a busy physio slot or exhausted shared equipment.
+- **Expected:** 409 with original dates, reason and equipment preserved.
+- **Why it can fail:** availability ignores other bookings or rollback is incomplete.
+
+#### `test_edit_replaces_and_clears_equipment`
+- **Action:** replace the selection, then submit an explicit empty selection.
+- **Expected:** quantities change, then all allocations are removed without duplicates.
+- **Why it can fail:** replacements are merged with stale allocations or empty selection is ignored.
+
+#### `test_physio_status_transitions_preserve_history_and_free_capacity` (3 cases)
+- **Action:** mark confirmed appointments completed, no-show or cancelled by physio.
+- **Expected:** 303; history remains and the slot/equipment become available.
+- **Why it can fail:** history is deleted or final states still reserve capacity.
+
+#### `test_terminal_appointments_cannot_be_edited` (4 cases)
+- **Action:** attempt to reopen each final status.
+- **Expected:** 409; the existing status remains unchanged.
+- **Why it can fail:** final transitions are reversible.
+
+#### `test_invalid_edit_preserves_booking` (12 cases)
+- **Action:** submit invalid statuses, reasons, dates or equipment fields.
+- **Expected:** 400 with no changed booking.
+- **Why it can fail:** validation is missing or writes occur before validation completes.
+
+#### `test_duplicate_fields_are_rejected`
+- **Action:** submit the reason field twice.
+- **Expected:** 400 instead of silently selecting one value.
+- **Why it can fail:** ambiguous form fields are collapsed without checking.
+
+#### `test_notes_are_trimmed_can_be_cleared_and_are_escaped`
+- **Action:** save script-like notes on a completed appointment, render and clear them.
+- **Expected:** trimmed storage, escaped HTML and an empty string after clearing.
+- **Why it can fail:** notes render unsafely, cannot be cleared or are wrongly blocked after completion.
+
+#### `test_missing_and_oversized_notes_are_rejected`
+- **Action:** omit notes or submit more than 10,000 characters.
+- **Expected:** 400 for both inputs.
+- **Why it can fail:** missing input clears notes unintentionally or the technical limit is ignored.
+
+#### `test_inventory_rejects_invalid_quantities` (5 cases)
+- **Action:** submit empty, zero, negative, fractional or nonnumeric quantities.
+- **Expected:** 400 with unchanged stock.
+- **Why it can fail:** form validation accepts values the inventory cannot represent.
+
+#### `test_inventory_changes_quantity_only`
+- **Action:** change stock while submitting a forged name and resource type.
+- **Expected:** 303; quantity changes but name/type do not.
+- **Why it can fail:** inventory input performs unrestricted model updates.
+
+#### `test_inventory_cannot_drop_below_peak_bookings`
+- **Setup:** two overlapping confirmed reservations using both beds.
+- **Action:** reduce stock to one.
+- **Expected:** 409 and stock stays at two.
+- **Why it can fail:** existing capacity commitments are ignored.
+
+#### `test_inventory_counts_peak_not_sum_or_cancelled_history`
+- **Setup:** adjacent bookings and cancelled history with larger allocations.
+- **Expected:** reduction to one succeeds, since active simultaneous demand is one.
+- **Why it can fail:** sequential reservations are summed or cancelled bookings still count.
+
+#### `test_missing_records_return_404` (4 cases)
+- **Action:** request nonexistent appointment/detail/edit/notes or resource mutation targets.
+- **Expected:** 404 for validly formed requests.
+- **Why it can fail:** missing rows are dereferenced or silently accepted.
+
+#### `test_database_failures_roll_back_and_hide_details` (3 cases)
+- **Action:** make commit fail during editing, notes and inventory changes.
+- **Expected:** generic 503 with original fields and quantities preserved.
+- **Why it can fail:** partial writes survive or internal exception text leaks.
+
+#### `test_posts_require_session_bound_csrf` (3 cases)
+- **Action:** POST missing/invalid/another-session tokens, then the valid session token.
+- **Expected:** 400 for invalid tokens and 303 for the valid token on every mutation route.
+- **Why it can fail:** a route omits verification or accepts a token from another browser session.
+
+#### `test_mutations_require_post` (3 cases)
+- **Action:** GET each mutation URL.
+- **Expected:** 405.
+- **Why it can fail:** a GET request can mutate records.
+
+#### `test_equipment_replacement_failure_restores_original_allocations`
+- **Action:** replace equipment and make commit fail after the old allocations are deleted.
+- **Expected:** 503; exactly the original allocation remains with its original quantity.
+- **Why it can fail:** replacement deletion and insertion are not atomic.
+
+#### `test_oversized_url_ids_do_not_cause_database_overflow` (2 cases)
+- **Action:** request appointment/resource IDs beyond the database integer range.
+- **Expected:** 404/400 rather than an integer-binding server error.
+- **Why it can fail:** arbitrary URL integers reach SQL before validation.
+
+#### `test_real_factory_physio_workflow_uses_forms_and_csrf`
+- **Setup:** the real app factory with configuration patched to an isolated in-memory database.
+- **Action:** log in with a password, follow the dashboard redirect, edit an appointment,
+  save notes, complete it and reduce inventory using tokens from real rendered forms.
+- **Expected:** each page loads; all fields and history persist, and completing the booking
+  releases its equipment so the inventory reduction succeeds.
+- **Why it can fail:** app registration, login redirect, template forms, CSRF or service integration broke.
+
+#### `test_unexpected_value_errors_are_not_misreported_as_bad_input` (2 cases)
+- **Action:** make a template or agenda helper raise an unexpected `ValueError`.
+- **Expected:** the exception propagates in testing instead of returning a misleading 400.
+- **Why it can fail:** a blanket error handler disguises programming faults as bad form input.
+
+#### `test_started_appointment_equipment_changes_preserve_existing_selection`
+- **Setup:** freeze time during an existing confirmed session.
+- **Action:** change its equipment, then correct only its reason.
+- **Expected:** equipment change returns 400 with a clear future-start message and unchanged
+  allocations; the reason correction succeeds. This documents the existing edit policy.
+- **Why it can fail:** started-session equipment is changed unintentionally or all edits are blocked.
+
+## `test_physio_transactions.py`
+
+`records` seeds an isolated client/physio database. Concurrent tests use a separate
+temporary SQLite file and independent application contexts, not an in-memory
+connection shared across threads. No production data is used.
+
+#### `test_management_preserves_unrelated_pending_changes` (9 cases)
+- **Action:** call each mutation service with an unrelated new, dirty or deleted row.
+- **Expected:** `BookingTransactionError` and the pending object remains in the session.
+- **Why it can fail:** management auto-flushes, commits or discards the caller's work.
+
+#### `test_management_service_requires_physio_role` (4 cases)
+- **Action:** directly call all read/write services with client, missing, boolean or string actors.
+- **Expected:** `PermissionError`, with no data changes.
+- **Why it can fail:** authorization exists only at the HTTP layer.
+
+#### `test_service_rejects_invalid_inventory_quantity_types` (5 cases)
+- **Action:** pass boolean, string, zero, negative or overflowing quantities directly.
+- **Expected:** `PhysioValidationError` and unchanged stock.
+- **Why it can fail:** services depend exclusively on route parsing.
+
+#### `test_service_rejects_invalid_record_ids` (4 cases)
+- **Action:** pass boolean, string, zero or negative IDs to appointment/resource services.
+- **Expected:** typed not-found/validation errors without querying an unintended record.
+- **Why it can fail:** Python booleans or string coercion are treated as valid IDs.
+
+#### `test_agenda_includes_midnight_overlap_and_excludes_adjacent_end`
+- **Setup:** an appointment starting the previous night.
+- **Expected:** it appears while overlapping the selected day, but not if it ends at midnight.
+- **Why it can fail:** the query uses only start dates or inclusive end boundaries.
+
+#### `test_month_and_week_boundaries`
+- **Action:** calculate leap-February, December and Monday-based weekly ranges.
+- **Expected:** correct exclusive next-period boundaries across leap days/year changes.
+- **Why it can fail:** range arithmetic assumes fixed month lengths or a different week start.
+
+#### `test_availability_excludes_only_the_edited_appointment`
+- **Action:** query the same slot with/without the appointment exclusion and with an invalid ID.
+- **Expected:** self-exclusion succeeds, the normal query remains busy and boolean IDs fail validation.
+- **Why it can fail:** exclusion affects ordinary bookings or bypasses input validation.
+
+#### `test_other_physio_cannot_call_management_services`
+- **Action:** directly edit/annotate another physio's appointment.
+- **Expected:** `PhysioNotFoundError` and untouched notes.
+- **Why it can fail:** ownership protection is limited to routes.
+
+#### `test_rescheduling_releases_old_slot_and_keeps_new_equipment`
+- **Action:** move the appointment and reserve both beds at the new time.
+- **Expected:** old physio slot is free and another physio cannot take equipment at the new time.
+- **Why it can fail:** the old reservation remains active or new allocations are not saved.
+
+#### `test_inventory_ignores_ended_confirmed_history`
+- **Setup:** an ended historical appointment still marked confirmed.
+- **Expected:** its equipment demand does not prevent a present-day stock reduction.
+- **Why it can fail:** the reduction counts all historical reservations rather than ongoing/future ones.
+
+#### `test_concurrent_management_writes_are_serialized` (8 cases)
+- **Action:** race rescheduling against a booking for the same physio or shared equipment,
+  inventory reduction against booking, and notes against status in legacy/modern SQLite modes.
+- **Expected:** competing capacity changes cannot both succeed; independent notes/status
+  changes both persist without losing either field. Stock always covers accepted allocations.
+- **Why it can fail:** booking and management use incompatible locks or stale ORM quantities.
+- **Compatibility:** four modern cases skip on Python 3.11, which lacks the autocommit option.
 
 ---
 
