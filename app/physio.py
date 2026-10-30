@@ -19,6 +19,7 @@ from app.appointments import (
     AvailabilityError,
     BookingTransactionError,
 )
+from app.availability import AvailabilityValidationError
 from app.extensions import db
 from app.physio_management import (
     MAX_QUANTITY,
@@ -61,7 +62,7 @@ def invalid_management_field(error):
     return render_template("physio/error.html", errors=[str(error)]), 400
 
 
-@physio.errorhandler(ValueError)
+@physio.errorhandler(AvailabilityValidationError)
 def invalid_management_request(error):
     return (
         render_template(

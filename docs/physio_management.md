@@ -58,7 +58,11 @@ reopened or rescheduled. A final transition preserves the time, reason and
 allocation history; changing these together with a final status is rejected.
 The detail page therefore uses separate editing and status forms.
 
-Rescheduling or changing equipment requires a future start. The selected physio
+Rescheduling or changing equipment requires a future start. Equipment cannot
+be changed on a session that has already started, even if its status
+is still confirmed. Correcting only its reason and saving notes remains allowed.
+This preserves the existing policy; permitting equipment changes during sessions
+needs a separate team decision. The selected physio
 and shared resource capacity are checked again under the transaction lock.
 `check_availability(..., exclude_appointment_id=id)` excludes only the edited
 appointment from both overlap and equipment calculations; other reservations
@@ -92,6 +96,9 @@ return 409. Database/transaction failures return a generic 503. Failed mutations
 roll back all changes, including equipment replacement; no internal exception
 or database details are shown. Validation errors use an escaped error page with
 links back to the agenda and inventory; they do not automatically replay a POST.
+Only explicit `PhysioValidationError` and `AvailabilityValidationError` input
+errors become 400 responses. Unexpected `ValueError` exceptions retain Flask's
+normal server-error logging/handling rather than being disguised as bad input.
 
 Services own their commit/rollback boundary. Finish unrelated writes first:
 pending new, dirty or deleted objects raise `BookingTransactionError` without

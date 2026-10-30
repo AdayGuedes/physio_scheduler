@@ -1,8 +1,8 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 269 collected cases (including
-parametrized cases): 268 pass and 1 is an expected failure (`xfail`). Eight modern
+it would fail. On Python 3.13 the suite has 272 collected cases (including
+parametrized cases): 271 pass and 1 is an expected failure (`xfail`). Eight modern
 sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -17,7 +17,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
-| `test_physio.py` | 76 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
+| `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 7 | Inventory seed function and `flask seed-inventory` command |
 | `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
@@ -842,6 +842,18 @@ a signed-in browser. See [the management contract](../docs/physio_management.md)
 - **Expected:** each page loads; all fields and history persist, and completing the booking
   releases its equipment so the inventory reduction succeeds.
 - **Why it can fail:** app registration, login redirect, template forms, CSRF or service integration broke.
+
+#### `test_unexpected_value_errors_are_not_misreported_as_bad_input` (2 cases)
+- **Action:** make a template or agenda helper raise an unexpected `ValueError`.
+- **Expected:** the exception propagates in testing instead of returning a misleading 400.
+- **Why it can fail:** a blanket error handler disguises programming faults as bad form input.
+
+#### `test_started_appointment_equipment_changes_preserve_existing_selection`
+- **Setup:** freeze time during an existing confirmed session.
+- **Action:** change its equipment, then correct only its reason.
+- **Expected:** equipment change returns 400 with a clear future-start message and unchanged
+  allocations; the reason correction succeeds. This documents the existing edit policy.
+- **Why it can fail:** started-session equipment is changed unintentionally or all edits are blocked.
 
 ## `test_physio_transactions.py`
 

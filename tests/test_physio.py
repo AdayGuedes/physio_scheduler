@@ -1,5 +1,6 @@
 import re
 from datetime import date, datetime
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -636,3 +637,44 @@ def test_real_factory_physio_workflow_uses_forms_and_csrf(monkeypatch):
             db.session.remove()
             db.drop_all()
             db.engine.dispose()
+
+
+@pytest.mark.parametrize("source", ["template", "helper"])
+def test_unexpected_value_errors_are_not_misreported_as_bad_input(
+    physio_app, people, monkeypatch, source
+):
+    module = import_module("app.physio")
+
+    def fail(*args, **kwargs):
+        raise ValueError("unexpected programming failure")
+
+    monkeypatch.setattr(
+        module, "render_template" if source == "template" else "get_daily_agenda", fail
+    )
+    with pytest.raises(ValueError, match="unexpected programming failure"):
+        _login(physio_app, people[0][1]).get("/physio/dashboard")
+
+
+def test_started_appointment_equipment_changes_preserve_existing_selection(
+    physio_app, people, monkeypatch
+):
+    appointment_id = _saved(people)
+
+    class SessionTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat("2035-01-15T10:30")
+
+    monkeypatch.setattr(import_module("app.physio_management"), "datetime", SessionTime)
+    client = _login(physio_app, people[0][1])
+    path = f"/physio/appointments/{appointment_id}/edit"
+    response = client.post(
+        path, data={"resources_present": "1", f"resource_{people[1]}": "2"}
+    )
+    assert response.status_code == 400
+    assert b"future start" in response.data
+    assert (
+        db.session.get(Appointment, appointment_id).appointment_resources[0].quantity
+        == 1
+    )
+    assert client.post(path, data={"reason": "Corrected reason"}).status_code == 303

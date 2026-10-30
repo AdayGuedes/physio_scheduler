@@ -166,7 +166,7 @@ def update_appointment(
             now = datetime.now()  # noqa: DTZ005 (database uses naive local times)
             if schedule_changed and new_start <= now:
                 raise PhysioValidationError(
-                    "Rescheduled appointments must start in the future."
+                    "Appointment time and equipment changes require a future start."
                 )
             lock_booking(
                 physio_id,
