@@ -68,17 +68,20 @@ DEV_USERS = [
 
 def seed_dev_users():
     result = []
+    password_hash = None
 
     for user in DEV_USERS:
         email = user["email"].strip().lower()
         existing = User.query.filter_by(email=email).first()
 
         if existing is None:
+            if password_hash is None:
+                password_hash = generate_password_hash(DEV_PASSWORD)
             new_user = User(
                 role=user["role"],
                 name=user["name"],
                 email=email,
-                password_hash=generate_password_hash(DEV_PASSWORD),
+                password_hash=password_hash,
             )
             db.session.add(new_user)
             result.append(new_user)
