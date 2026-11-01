@@ -21,6 +21,17 @@ INVENTORY_RESOURCES = [
     {"type": "ice_bath", "name": "Ice bathtubs", "total_quantity": 3},
 ]
 
+DEV_PASSWORD = "dev_password_123"
+
+DEV_USERS = [
+    {"role": "physio", "name": "Test_physio1", "email": "test_physio1@example.com"},
+    {"role": "physio", "name": "Test_physio2", "email": "test_physio2@example.com"},
+    {"role": "client", "name": "Test_client1", "email": "test_client1@example.com"},
+    {"role": "client", "name": "Test_client2", "email": "test_client2@example.com"},
+    {"role": "client", "name": "Test_client3", "email": "test_client3@example.com"},
+    {"role": "client", "name": "Test_client4", "email": "test_client4@example.com"},
+]
+
 
 def seed_inventory():
     result = []
@@ -52,18 +63,6 @@ def seed_inventory_command():
     except SQLAlchemyError as error:
         db.session.rollback()
         raise click.ClickException(f"seed-inventory failed:\n {error}")
-
-
-DEV_PASSWORD = "dev_password_123"
-
-DEV_USERS = [
-    {"role": "physio", "name": "Test_physio1", "email": "test_physio1@example.com"},
-    {"role": "physio", "name": "Test_physio2", "email": "test_physio2@example.com"},
-    {"role": "client", "name": "Test_client1", "email": "test_client1@example.com"},
-    {"role": "client", "name": "Test_client2", "email": "test_client2@example.com"},
-    {"role": "client", "name": "Test_client3", "email": "test_client3@example.com"},
-    {"role": "client", "name": "Test_client4", "email": "test_client4@example.com"},
-]
 
 
 def seed_dev_users():
