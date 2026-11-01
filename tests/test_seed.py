@@ -231,13 +231,13 @@ def test_seed_dev_users_command_is_blocked_without_flag(app):
     assert User.query.count() == 0
 
 
-def test_seed_dev_users_command_fails_on_database_error(app, monkeypatch):
+def test_seed_dev_users_command_rolls_back_on_database_error(app, monkeypatch):
     app.config["ENABLE_DEV_SEED"] = True
 
     def raise_database_error():
         raise SQLAlchemyError("boom")
 
-    monkeypatch.setattr("app.seed.seed_dev_users", raise_database_error)
+    monkeypatch.setattr(db.session, "commit", raise_database_error)
 
     result = app.test_cli_runner().invoke(seed_dev_users_command)
 
