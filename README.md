@@ -25,9 +25,11 @@ In the root of the project then do:
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Whatever is comming out of the second script, paste it in SECRET_KEY in the .env file, NOT IN THE .env.example
-DATABASE_URL remains the same
-ENABLE_DEV_SEED stays empty unless you need the development users described in "Seed data"
+Whatever is coming out of the script above, paste it in SECRET_KEY in the .env file, NOT IN THE .env.example
+
+- `SECRET_KEY`: the generated value
+- `DATABASE_URL`: remains the same
+- `ENABLE_DEV_SEED`: stays empty unless you need the development users described in "Seed data"
 
 ## Database
 The Database is still in progress but in the future, you will have to do some scripts that will be here
@@ -39,7 +41,8 @@ flask seed-inventory
 ```
 
 - Development users (2 physios and 4 clients). The command refuses to run unless
-  `ENABLE_DEV_SEED=1` is set in `.env`, so never set it in production:
+  `ENABLE_DEV_SEED=1` is set in `.env`. The users share a known password, so never set
+  it in production or against a shared database:
 ```bash
 flask seed-dev-users
 ```
