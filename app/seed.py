@@ -94,7 +94,8 @@ def seed_dev_users():
 def seed_dev_users_command():
     if not current_app.config.get("ENABLE_DEV_SEED"):
         raise click.ClickException(
-            "Wrong environment:\n Activate ENABLE_DEV_SEED in .env by giving value 1"
+            "seed-dev-users is disabled. "
+            "Set ENABLE_DEV_SEED=1 in .env to enable it (development only)."
         )
     try:
         users_results = seed_dev_users()

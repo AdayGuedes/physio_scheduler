@@ -231,6 +231,29 @@ def test_seed_dev_users_command_is_blocked_without_flag(app):
     assert User.query.count() == 0
 
 
+def test_seed_dev_users_command_leaves_no_partial_users_on_mid_seed_error(
+    app, monkeypatch
+):
+    app.config["ENABLE_DEV_SEED"] = True
+    original_add = db.session.add
+    added = []
+
+    def add_then_fail(user):
+        original_add(user)
+        added.append(user)
+        if len(added) == 3:
+            raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr(db.session, "add", add_then_fail)
+
+    result = app.test_cli_runner().invoke(seed_dev_users_command)
+
+    assert result.exit_code == 1
+    assert "seed-dev-users failed" in result.output
+    assert len(added) == 3
+    assert User.query.count() == 0
+
+
 def test_seed_dev_users_command_rolls_back_on_database_error(app, monkeypatch):
     app.config["ENABLE_DEV_SEED"] = True
 
