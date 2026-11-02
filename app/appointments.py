@@ -37,7 +37,8 @@ def get_appointments_by_client(client_id):
     ).all()
 
 
-def _lock_booking(physio_id, resources):
+def lock_booking(physio_id, resources):
+    """Hold the physio and shared resource locks until the caller ends its transaction."""
     connection = db.session.connection()
     if connection.dialect.name == "sqlite":
         driver = connection.connection.driver_connection
@@ -90,7 +91,7 @@ def create_appointment(client_id, physio_id, start_time, end_time, reason, resou
             raise ValueError("physio_id must be a positive integer")
         if type(client_id) is not int or client_id <= 0:
             raise ValueError("client_id must be a positive integer")
-        _lock_booking(physio_id, resources)
+        lock_booking(physio_id, resources)
         client = db.session.get(User, client_id)
         if client is None or client.role != "client":
             raise ValueError("Unknown client id.")
