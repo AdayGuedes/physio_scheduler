@@ -91,10 +91,10 @@ def seed_dev_users():
 @click.command("seed-dev-users")
 @with_appcontext
 def seed_dev_users_command():
-    if not current_app.config.get("ENABLE_DEV_SEED"):
+    if not current_app.config.get("ENABLE_DEV_SEED") or not current_app.debug:
         raise click.ClickException(
-            "seed-dev-users is disabled. "
-            "Set ENABLE_DEV_SEED=1 in .env to enable it (development only)."
+            "seed-dev-users is disabled. It requires ENABLE_DEV_SEED=1 in .env "
+            "and Flask debug mode (flask --debug seed-dev-users). Development only."
         )
     try:
         users_results = seed_dev_users()

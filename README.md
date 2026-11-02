@@ -41,10 +41,10 @@ flask seed-inventory
 ```
 
 - Development users (2 physios and 4 clients). The command refuses to run unless
-  `ENABLE_DEV_SEED=1` is set in `.env`. The users share a known password, so never set
-  it in production or against a shared database:
+  `ENABLE_DEV_SEED=1` is set in `.env` and Flask runs in debug mode. The users share a
+  known password, so never set the flag in production or against a shared database:
 ```bash
-flask seed-dev-users
+flask --debug seed-dev-users
 ```
 
 Running either command again skips what already exists.

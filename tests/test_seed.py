@@ -189,9 +189,13 @@ def test_seeded_users_can_authenticate(app):
     assert authenticate_user("test_client1@example.com", "wrong-password") is None
 
 
-def test_seed_dev_users_command_seeds_database(app):
+@pytest.fixture
+def dev_seed_enabled(app):
     app.config["ENABLE_DEV_SEED"] = True
+    app.debug = True
 
+
+def test_seed_dev_users_command_seeds_database(app, dev_seed_enabled):
     result = app.test_cli_runner().invoke(seed_dev_users_command)
 
     assert result.exit_code == 0
@@ -205,8 +209,7 @@ def test_seed_dev_users_command_seeds_database(app):
         assert user.password_hash not in result.output
 
 
-def test_seed_dev_users_command_skips_existing_users(app):
-    app.config["ENABLE_DEV_SEED"] = True
+def test_seed_dev_users_command_skips_existing_users(app, dev_seed_enabled):
     runner = app.test_cli_runner()
     runner.invoke(seed_dev_users_command)
 
@@ -231,10 +234,23 @@ def test_seed_dev_users_command_is_blocked_without_flag(app):
     assert User.query.count() == 0
 
 
-def test_seed_dev_users_command_leaves_no_partial_users_on_mid_seed_error(
-    app, monkeypatch
-):
+def test_seed_dev_users_command_is_blocked_outside_debug_mode(app):
     app.config["ENABLE_DEV_SEED"] = True
+    app.debug = False
+
+    result = app.test_cli_runner().invoke(seed_dev_users_command)
+
+    assert result.exit_code == 1
+    assert "debug mode" in result.output
+
+    db.session.rollback()
+
+    assert User.query.count() == 0
+
+
+def test_seed_dev_users_command_leaves_no_partial_users_on_mid_seed_error(
+    app, dev_seed_enabled, monkeypatch
+):
     original_add = db.session.add
     added = []
 
@@ -254,9 +270,9 @@ def test_seed_dev_users_command_leaves_no_partial_users_on_mid_seed_error(
     assert User.query.count() == 0
 
 
-def test_seed_dev_users_command_rolls_back_on_database_error(app, monkeypatch):
-    app.config["ENABLE_DEV_SEED"] = True
-
+def test_seed_dev_users_command_rolls_back_on_database_error(
+    app, dev_seed_enabled, monkeypatch
+):
     def raise_database_error():
         raise SQLAlchemyError("boom")
 
