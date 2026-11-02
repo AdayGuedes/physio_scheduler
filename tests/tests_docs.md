@@ -1,8 +1,8 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 272 collected cases (including
-parametrized cases): 271 pass and 1 is an expected failure (`xfail`). Eight modern
+it would fail. On Python 3.13 the suite has 288 collected cases (including
+parametrized cases): 287 pass and 1 is an expected failure (`xfail`). Eight modern
 sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -16,10 +16,11 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_auth.py` | 13 | Registration, login, logout, redirects |
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
+| `test_config.py` | 4 | `ENABLE_DEV_SEED` flag parsing in `config.py` |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
-| `test_seed.py` | 7 | Inventory seed function and `flask seed-inventory` command |
+| `test_seed.py` | 19 | Inventory and dev-users seed functions, `flask seed-inventory` and `flask seed-dev-users` commands |
 | `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
 ## Shared fixture: `conftest.py`
@@ -338,6 +339,31 @@ These tests use `create_app()` and do not need the `app` fixture.
 
 ---
 
+## `test_config.py`
+
+Tests for `config.py`. The `load_config` fixture sets `ENABLE_DEV_SEED` in the process
+environment, reloads the `config` module so the `Config` class body is evaluated again, and
+returns `Config`. After the test it undoes the variable and reloads once more, so later tests
+see the original configuration.
+
+#### `test_enable_dev_seed_only_accepts_one` (4 cases)
+- **Setup:** `ENABLE_DEV_SEED` set to `"1"`, `"true"`, `"0"` and `""`.
+- **Expected:** `Config.ENABLE_DEV_SEED` is `True` for `"1"` and `False` for the other three.
+- **Why it can fail:**
+  - The parsing was loosened (truthiness check, `.lower() == "true"`), so values such as
+    `"true"` would enable the dev-users command.
+  - The attribute is no longer a `bool` (for example, it returns the raw string), so the
+    `is` comparison fails.
+
+**Notes**
+- The "variable not set" case is not tested: reloading calls `load_dotenv()`, which would read
+  the developer's `.env`. Setting the variable to `""` is safe because `load_dotenv()` never
+  overrides variables that already exist.
+- The reload does not change the `Config` class that `app/__init__.py` imported earlier, so
+  these tests read the reloaded class directly instead of going through `create_app()`.
+
+---
+
 ## `test_models.py`
 
 #### `test_user_email_to_be_unique`
@@ -373,10 +399,15 @@ These tests use `create_app()` and do not need the `app` fixture.
 
 ## `test_seed.py`
 
-Tests for `app/seed.py`: the `seed_inventory()` function and the `flask seed-inventory`
-command. `seed_inventory()` only creates the `Resource` rows that are missing and returns
-the ones it created. It never modifies existing rows (the physio may have adjusted their
-quantities), never commits and never deletes. The command is the one that commits and prints.
+Tests for `app/seed.py`: the `seed_inventory()` and `seed_dev_users()` functions and the
+`flask seed-inventory` and `flask seed-dev-users` commands. Both functions only create the
+rows that are missing and return the ones they created. They never modify existing rows (the
+physio may have adjusted inventory quantities), never commit and never delete. The commands
+are the ones that commit and print.
+
+The dev-users command only runs with `ENABLE_DEV_SEED=1` and Flask in debug mode. The
+`dev_seed_enabled` fixture turns both on for the tests that need the command to run; the
+guard tests set them by hand.
 
 #### `test_seed_inventory_creates_all_resources`
 - **Setup:** empty database.
@@ -461,12 +492,128 @@ quantities), never commits and never deletes. The command is the one that commit
   - The command raises something other than `click.ClickException`, so the message and the
     exit code change.
 
+#### `test_seed_dev_users_creates_all_users`
+- **Setup:** empty database.
+- **Action:** `seed_dev_users()` then `commit()`.
+- **Expected:**
+  - The function returns 6 users and the table has 6 rows.
+  - The emails equal the ones in `DEV_USERS`.
+  - There are 2 `physio` and 4 `client` users.
+- **Why it can fail:**
+  - `DEV_USERS` changed (users added, removed or with another role) and the test was not updated.
+  - The function does not add the users to the session, so nothing is saved.
+
+#### `test_seed_dev_users_is_idempotent`
+- **Action:** `seed_dev_users()` + `commit()`, twice.
+- **Expected:** the second call returns `[]` and the table keeps 6 users.
+- **Why it can fail:** the lookup by email does not find the existing row (wrong field or an
+  email that was not normalized), so the second run inserts again and raises `IntegrityError`
+  on `uq_users_email` or leaves duplicates.
+
+#### `test_seed_dev_users_keeps_existing_user`
+- **Setup:** a user with the email of the first dev user but a different name, password hash
+  (`"manual-hash"`) and the `physio` role.
+- **Action:** `seed_dev_users()` + `commit()`.
+- **Expected:**
+  - That user keeps its name and its hash.
+  - The function returns only the 5 users it created and the table has 6 rows.
+- **Why it can fail:**
+  - The seed overwrites existing users, which would silently replace the password of a real
+    account that shares a dev email.
+  - The seed creates a second row for that email instead of skipping it.
+
+#### `test_seed_dev_users_raises_key_error_on_missing_key`
+- **Setup:** `DEV_USERS` replaced (with `monkeypatch`) by one entry that has no `role`.
+- **Action:** `seed_dev_users()`.
+- **Expected:** `KeyError`, and no user was saved.
+- **Why it can fail:** the seed reads the entries with `.get()` or fills in defaults, so a
+  malformed entry no longer fails loudly. The database would reject it later with a
+  different error (`IntegrityError`) or save incomplete data.
+
+#### `test_seed_dev_users_normalizes_email`
+- **Setup:** `DEV_USERS` replaced by one client whose email is `"  Test_Messy@Example.COM "`.
+- **Action:** `seed_dev_users()` + `commit()`, twice.
+- **Expected:**
+  - The stored email is `test_messy@example.com`, as `register_user` would store it.
+  - The second call creates nothing.
+- **Why it can fail:** the email is saved without `.strip().lower()`, or the lookup uses the
+  raw value, so the user can not log in with the normalized email and the second run
+  inserts a duplicate.
+
+#### `test_seeded_users_can_authenticate`
+- **Setup:** `seed_dev_users()` + `commit()`.
+- **Expected:**
+  - `authenticate_user(email, DEV_PASSWORD)` returns a user with the right role for every
+    entry in `DEV_USERS`.
+  - The email also works with spaces and capital letters.
+  - A wrong password returns `None`.
+- **Why it can fail:** the seed stores the plain password instead of a hash, hashes
+  something other than `DEV_PASSWORD`, or stores the email in a form `authenticate_user`
+  does not look up.
+
+#### `test_seed_dev_users_command_seeds_database`
+- **Setup:** `dev_seed_enabled` (flag on, debug on), empty database.
+- **Action:** invoke `seed_dev_users_command`.
+- **Expected:**
+  - Exit code `0`.
+  - 6 lines of output, such as `physio, Test_physio1, test_physio1@example.com`.
+  - After `db.session.rollback()` there are still 6 users, so the command committed.
+  - No password hash appears in the output.
+- **Why it can fail:**
+  - The command does not call `db.session.commit()`.
+  - The output prints the `password_hash` or has another number of lines.
+
+#### `test_seed_dev_users_command_skips_existing_users`
+- **Setup:** `dev_seed_enabled`, and the command is run once.
+- **Action:** invoke the command a second time.
+- **Expected:** exit code `0`, the output contains `Users already seeded`, and there are
+  still 6 users after `db.session.rollback()`.
+- **Why it can fail:** the command prints nothing when no user is created, or the second run
+  creates duplicates or raises an error.
+
+#### `test_seed_dev_users_command_is_blocked_without_flag`
+- **Setup:** the `app` fixture does not load `Config`, so `ENABLE_DEV_SEED` is absent.
+- **Action:** invoke the command.
+- **Expected:** exit code `1`, the output mentions `ENABLE_DEV_SEED`, and no user was saved.
+- **Why it can fail:** the guard treats a missing flag as enabled, or compares the value in
+  the wrong direction. This is the production-safety guarantee of the command.
+
+#### `test_seed_dev_users_command_is_blocked_outside_debug_mode`
+- **Setup:** `ENABLE_DEV_SEED` is `True` but `app.debug` is `False`.
+- **Action:** invoke the command.
+- **Expected:** exit code `1`, the output contains `debug mode`, and no user was saved.
+- **Why it can fail:** the guard only checks the flag, so a stray `ENABLE_DEV_SEED=1` in a
+  deployed `.env` would create the known-password accounts.
+
+#### `test_seed_dev_users_command_leaves_no_partial_users_on_mid_seed_error`
+- **Setup:** `dev_seed_enabled`. `db.session.add` is wrapped (with `monkeypatch`) to save
+  the user and then raise `SQLAlchemyError` on the third call.
+- **Action:** invoke the command.
+- **Expected:** exit code `1`, the output contains `seed-dev-users failed`, exactly 3 users
+  were added before the error, and the table is empty.
+- **Why it can fail:** the command does not call `db.session.rollback()`, so the first two
+  users stay pending in the session and are counted or saved. The seed must be
+  all-or-nothing.
+
+#### `test_seed_dev_users_command_rolls_back_on_database_error`
+- **Setup:** `dev_seed_enabled`. `db.session.commit` is replaced (with `monkeypatch`) by a
+  function that raises `SQLAlchemyError`, after `seed_dev_users()` has added all users.
+- **Action:** invoke the command.
+- **Expected:** exit code `1`, the output contains `seed-dev-users failed`, and the table
+  is empty.
+- **Why it can fail:** the command does not catch `SQLAlchemyError` (no friendly message and
+  another exit code), or catches it without `db.session.rollback()`, so the pending users are
+  still in the session and the final count is 6, not 0.
+
 **Notes**
 - The two tests that provoke an `IntegrityError` rely on the seed processing `bed` before
   `ice_bath`. If the order of the seed list changes, check that the conflict is still triggered.
 - `test_seed_inventory_command_seeds_database` calls `db.session.rollback()` before counting
   on purpose: the test and the command share the same in-memory connection, so without it
   the test could see uncommitted rows and pass even when the command forgets to commit.
+- The two `monkeypatch` tests that make the dev-users command fail check the rollback:
+  the error is raised after users are already pending in the session, so a command without
+  `db.session.rollback()` would leave them there and the final count would not be 0.
 
 ---
 
@@ -931,5 +1078,5 @@ connection shared across threads. No production data is used.
   `create_app()` use the real configuration (`.env`), so a missing `SECRET_KEY` or
   `DATABASE_URL` breaks them.
 - **Changed user-facing text:** the auth tests assert exact messages (`Invalid email or
-  password.`, `An account with that email already exists.`) and the seed command test asserts
-  `seed-inventory failed`.
+  password.`, `An account with that email already exists.`) and the seed command tests assert
+  `seed-inventory failed`, `seed-dev-users failed`, `ENABLE_DEV_SEED` and `debug mode`.
