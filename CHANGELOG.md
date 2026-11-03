@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-7] Add student appointment booking, personal history and cancellation
 - [PS-8] Add physio agenda, appointment management, clinical notes and shared inventory
 - [PS-26] Add development-only seed command for dummy physio and client users
+- [PS-9] Add a protected FullCalendar event feed with date filters and API documentation
 
 ### Changed
 
