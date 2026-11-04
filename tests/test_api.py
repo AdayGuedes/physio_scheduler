@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime, timedelta
 from importlib import import_module
 from pathlib import Path
@@ -25,6 +26,19 @@ def api_app(app):
     app.register_blueprint(api)
     app.register_blueprint(physio)
     return app
+
+
+@pytest.fixture
+def new_york_timezone(monkeypatch):
+    if not hasattr(time, "tzset"):
+        pytest.skip("Pinning the server timezone requires POSIX time.tzset().")
+    try:
+        with monkeypatch.context() as timezone_environment:
+            timezone_environment.setenv("TZ", "America/New_York")
+            time.tzset()
+            yield
+    finally:
+        time.tzset()
 
 
 def test_events_requires_login(api_app):
@@ -262,6 +276,19 @@ def test_different_offsets_across_dst_are_accepted(api_app, people):
         },
     )
     assert response.status_code == 200 and response.json == []
+
+
+def test_range_inverted_by_dst_fold_is_rejected(api_app, people, new_york_timezone):
+    response = _login(api_app, people[1]).get(
+        "/api/events",
+        query_string={
+            "start": "2035-11-04T01:30:00-04:00",
+            "end": "2035-11-04T01:10:00-05:00",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json["code"] == "invalid_request"
+    assert "increasing local date range" in response.json["error"]
 
 
 def test_maximum_date_span_is_inclusive(api_app, people):

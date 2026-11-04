@@ -1,9 +1,10 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 354 collected cases (including
-parametrized cases): 353 pass and 1 is an expected failure (`xfail`). Eight modern
-sqlite3 transaction cases are skipped on Python 3.11.
+it would fail. On Python 3.13 the suite has 355 collected cases (including
+parametrized cases). One is an expected failure (`xfail`); the DST-fold case
+requires POSIX `time.tzset()` and skips on Windows, where 353 cases pass.
+Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
 ./scripts/test.sh                  # whole suite (pytest tests/)
@@ -13,7 +14,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 
 | File | Tests | Area |
 |---|---|---|
-| `test_api.py` | 66 | FullCalendar contract, query validation, ownership, timezone bounds, safe errors and login integration |
+| `test_api.py` | 67 | FullCalendar contract, query validation, ownership, timezone bounds, safe errors and login integration |
 | `test_auth.py` | 13 | Registration, login, logout, redirects |
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
@@ -1080,6 +1081,11 @@ session. The full integration test uses `create_app()` with configuration patche
 to a separate in-memory database. See [calendar_api.md](../docs/calendar_api.md)
 and the [OpenAPI contract](../docs/calendar_api.openapi.json).
 
+The `new_york_timezone` fixture pins `TZ=America/New_York` and calls `time.tzset()`
+for the DST-fold regression. Its teardown restores the original `TZ` environment
+before calling `time.tzset()` again, including when the test fails. It skips on
+platforms such as Windows without `time.tzset()`; Ubuntu CI runs the real conversion.
+
 #### `test_events_requires_login`
 - **Action:** request events without a session.
 - **Expected:** JSON 401.
@@ -1142,6 +1148,17 @@ and the [OpenAPI contract](../docs/calendar_api.openapi.json).
 - **Action:** submit a window whose ISO offsets change across daylight saving.
 - **Expected:** 200 rather than rejecting different numeric offsets.
 - **Why it can fail:** range parsing incorrectly requires both offsets to be identical.
+
+#### `test_range_inverted_by_dst_fold_is_rejected`
+- **Setup:** pin the server-local timezone to `America/New_York` with `new_york_timezone`.
+- **Action:** as a physio, request `start=2035-11-04T01:30:00-04:00` and
+  `end=2035-11-04T01:10:00-05:00` during the fall-back transition. The end instant
+  is 40 minutes later, but the converted naive local end is before the local start.
+- **Expected:** JSON 400 with `invalid_request` and the post-conversion local-range
+  validation message, proving the second range check is reached.
+- **Why it can fail:** the post-conversion increasing-range check is removed or
+  timezone offsets are discarded instead of converting the instants.
+- **Compatibility:** skips on Windows; runs on POSIX with `time.tzset()`, including Ubuntu CI.
 
 #### `test_maximum_date_span_is_inclusive`
 - **Action:** request exactly 93 local days.
