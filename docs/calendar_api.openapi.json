@@ -1,0 +1,65 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Physio Scheduler Calendar API",
+    "version": "1.0.0",
+    "description": "Read-only FullCalendar feed for the signed-in physiotherapist. All stored and returned appointment times are naive clinic-local times. See calendar_api.md for timezone and integration requirements."
+  },
+  "servers": [{"url": "/", "description": "Application root; include the deployment prefix when mounted below a subpath."}],
+  "paths": {
+    "/api/events": {
+      "get": {
+        "operationId": "api.events",
+        "summary": "List the current physiotherapist's calendar events",
+        "description": "Returns overlapping appointments in [start, end), sorted by start time then ID. Start and end are required and may span at most 93 clinic-local days. All statuses are included unless filtered. Duplicate and unsupported parameters are rejected. No owner override is accepted. The feed is a bare array, not a paginated data envelope; ranges exceeding 1,000 events return 422 instead of truncated data.",
+        "security": [{"cookieAuth": []}],
+        "parameters": [
+          {"name": "start", "in": "query", "required": true, "description": "Inclusive query boundary. Extended ISO date, naive local datetime, or datetime with Z/numeric offset. Both bounds must use the same awareness mode. Offset instants are converted to server-local clinic time.", "schema": {"type": "string", "minLength": 10, "maxLength": 64}, "example": "2035-01-15T00:00:00-05:00"},
+          {"name": "end", "in": "query", "required": true, "description": "Exclusive query boundary after start, at most 93 local days later. An event ending exactly at start or starting exactly at end is excluded.", "schema": {"type": "string", "minLength": 10, "maxLength": 64}, "example": "2035-01-16T00:00:00-05:00"},
+          {"name": "status", "in": "query", "required": false, "description": "Optional exact status filter; omission includes history as well as confirmed appointments.", "schema": {"type": "string", "enum": ["confirmed", "cancelled_by_client", "cancelled_by_physio", "completed", "no_show"]}},
+          {"name": "timeZone", "in": "query", "required": false, "description": "FullCalendar timezone metadata. Only local is supported by the existing naive clinic-local timestamp contract; use a clinic-local browser and server.", "schema": {"type": "string", "enum": ["local"], "default": "local"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "All matching owned appointments, or an empty array. Private, no-store; Vary: Cookie.",
+            "content": {"application/json": {"schema": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/components/schemas/CalendarEvent"}}, "example": [{"id": 42, "title": "Knee treatment", "start": "2035-01-15T10:00:00", "end": "2035-01-15T11:00:00", "status": "confirmed", "url": "/physio/appointments/42"}]}}
+          },
+          "400": {"description": "Missing, malformed, duplicate, unsupported or excessive query parameters.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "End must be after start.", "code": "invalid_request"}}}},
+          "401": {"description": "No valid authenticated user session. No HTML login redirect.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Authentication required.", "code": "authentication_required"}}}},
+          "403": {"description": "Authenticated account does not have the physio role.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Physiotherapist access required.", "code": "forbidden"}}}},
+          "405": {"description": "Mutation methods are not accepted. This is Flask's standard routing response and can be HTML."},
+          "422": {"description": "The requested range contains more than 1,000 owned matching events; request a smaller range.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Too many events in this range. Choose a smaller date range.", "code": "too_many_events"}}}},
+          "500": {"description": "Unexpected application failure, with no exception details in the response.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Unable to load calendar events.", "code": "internal_error"}}}},
+          "503": {"description": "Temporary database failure; retry later.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Calendar data is temporarily unavailable. Please try again.", "code": "unavailable"}}}}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"cookieAuth": {"type": "apiKey", "in": "cookie", "name": "session", "description": "Existing signed Flask-Login browser session. Sign in through /auth/login; never copy cookies or credentials into frontend code."}},
+    "schemas": {
+      "CalendarEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "start", "end", "status", "url"],
+        "properties": {
+          "id": {"type": "integer", "minimum": 1, "description": "Appointment ID, retaining the project's integer JSON contract."},
+          "title": {"type": "string", "description": "Appointment reason as untrusted text, not HTML."},
+          "start": {"type": "string", "description": "Naive clinic-local ISO datetime, with optional fractional seconds; intentionally not RFC3339 date-time because it has no UTC offset.", "example": "2035-01-15T10:00:00"},
+          "end": {"type": "string", "description": "Exclusive appointment end in naive clinic-local ISO datetime format.", "example": "2035-01-15T11:00:00"},
+          "status": {"type": "string", "enum": ["confirmed", "cancelled_by_client", "cancelled_by_physio", "completed", "no_show"]},
+          "url": {"type": "string", "description": "Application-relative detail URL generated by url_for, including any application mount prefix.", "example": "/physio/appointments/42"}
+        }
+      },
+      "CalendarError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error", "code"],
+        "properties": {
+          "error": {"type": "string", "description": "Safe human-readable message."},
+          "code": {"type": "string", "enum": ["invalid_request", "authentication_required", "forbidden", "too_many_events", "internal_error", "unavailable"]}
+        }
+      }
+    }
+  }
+}

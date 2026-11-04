@@ -1,9 +1,10 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 288 collected cases (including
-parametrized cases): 287 pass and 1 is an expected failure (`xfail`). Eight modern
-sqlite3 transaction cases are skipped on Python 3.11.
+it would fail. On Python 3.13 the suite has 355 collected cases (including
+parametrized cases). One is an expected failure (`xfail`); the DST-fold case
+requires POSIX `time.tzset()` and skips on Windows, where 353 cases pass.
+Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
 ./scripts/test.sh                  # whole suite (pytest tests/)
@@ -13,6 +14,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 
 | File | Tests | Area |
 |---|---|---|
+| `test_api.py` | 67 | FullCalendar contract, query validation, ownership, timezone bounds, safe errors and login integration |
 | `test_auth.py` | 13 | Registration, login, logout, redirects |
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
 | `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
@@ -32,6 +34,8 @@ touch `instance/app.db`.
 
 Tests that call `create_app()` directly (`test_blueprints.py` and the two
 `test_real_app_*` tests) use the real app factory and the real configuration instead.
+The full workflow tests in `test_physio.py` and `test_api.py` also use the real
+factory, but patch its configuration to isolated in-memory databases before creation.
 
 `test_availability.py` also uses this isolated `app` fixture. Its local `physio_id`
 fixture creates a user with the `physio` role; `_book_appointment` and
@@ -1065,6 +1069,182 @@ connection shared across threads. No production data is used.
   changes both persist without losing either field. Stock always covers accepted allocations.
 - **Why it can fail:** booking and management use incompatible locks or stale ORM quantities.
 - **Compatibility:** four modern cases skip on Python 3.11, which lacks the autocommit option.
+
+---
+
+## `test_api.py`
+
+`api_app` registers API/physio routes on the isolated shared application. `people`
+creates a client and two physios; `_saved` creates appointment history including
+private notes that must never appear in this feed. `_login` prepares a test browser
+session. The full integration test uses `create_app()` with configuration patched
+to a separate in-memory database. See [calendar_api.md](../docs/calendar_api.md)
+and the [OpenAPI contract](../docs/calendar_api.openapi.json).
+
+The `new_york_timezone` fixture pins `TZ=America/New_York` and calls `time.tzset()`
+for the DST-fold regression. Its teardown restores the original `TZ` environment
+before calling `time.tzset()` again, including when the test fails. It skips on
+platforms such as Windows without `time.tzset()`; Ubuntu CI runs the real conversion.
+
+#### `test_events_requires_login`
+- **Action:** request events without a session.
+- **Expected:** JSON 401.
+- **Why it can fail:** authentication is missing or redirects to HTML.
+
+#### `test_client_cannot_access_events`
+- **Action:** request events with an authenticated client account.
+- **Expected:** JSON 403.
+- **Why it can fail:** the API only checks login, not the physio role.
+
+#### `test_physio_receives_empty_json_array`
+- **Action:** request a valid window with no bookings.
+- **Expected:** 200 with `[]` and `application/json`.
+- **Why it can fail:** the route returns a wrapped object, HTML or a missing-data error.
+
+#### `test_events_match_contract_and_hide_other_physios_and_private_fields`
+- **Setup:** own and another physio's bookings, with private notes.
+- **Expected:** exactly the owned event and the six documented fields; no private
+  notes, account data or owner IDs.
+- **Why it can fail:** ownership filtering, explicit field selection or serialization changed.
+
+#### `test_events_are_ordered_by_start_then_id`
+- **Setup:** bookings inserted out of time order, including equal start times.
+- **Expected:** stable chronological order, breaking ties by ID.
+- **Why it can fail:** the query has no explicit deterministic ordering.
+
+#### `test_feed_includes_all_history_statuses` (5 cases)
+- **Action:** request one booking in each allowed status.
+- **Expected:** every status is represented without an explicit filter.
+- **Why it can fail:** availability-only confirmed filtering is incorrectly reused for history.
+
+#### `test_status_filter_applies_after_ownership`
+- **Setup:** own confirmed/completed bookings and another physio's completed booking.
+- **Expected:** only the owned completed booking when that status is requested.
+- **Why it can fail:** filtering uses OR instead of AND or forgets the owner condition.
+
+#### `test_date_window_uses_half_open_overlap` (5 cases)
+- **Action:** query bookings adjacent to, crossing or enclosing a day window.
+- **Expected:** true overlaps included; an end at the lower boundary or start at
+  the upper boundary excluded.
+- **Why it can fail:** inclusive endpoints or start-date-only filtering are used.
+
+#### `test_invalid_filters_return_safe_json_errors` (20 cases)
+- **Action:** submit missing, malformed, impossible, reversed, mixed-awareness,
+  excessive or unsupported filters, including owner overrides and timezone metadata.
+- **Expected:** safe JSON 400 with `invalid_request`.
+- **Why it can fail:** validation is incomplete or raw parsing errors escape as server failures.
+
+#### `test_duplicate_query_fields_are_rejected` (4 cases)
+- **Action:** repeat start, end, status or timeZone.
+- **Expected:** JSON 400 even when the duplicate value is identical.
+- **Why it can fail:** ambiguous query values are collapsed silently.
+
+#### `test_fullcalendar_offset_bounds_convert_to_server_local_time` (3 cases)
+- **Action:** query using UTC, positive and negative offset bounds.
+- **Expected:** matching server-local booking returned; output remains naive ISO.
+- **Why it can fail:** offsets are dropped instead of converting the represented instants.
+
+#### `test_different_offsets_across_dst_are_accepted`
+- **Action:** submit a window whose ISO offsets change across daylight saving.
+- **Expected:** 200 rather than rejecting different numeric offsets.
+- **Why it can fail:** range parsing incorrectly requires both offsets to be identical.
+
+#### `test_range_inverted_by_dst_fold_is_rejected`
+- **Setup:** pin the server-local timezone to `America/New_York` with `new_york_timezone`.
+- **Action:** as a physio, request `start=2035-11-04T01:30:00-04:00` and
+  `end=2035-11-04T01:10:00-05:00` during the fall-back transition. The end instant
+  is 40 minutes later, but the converted naive local end is before the local start.
+- **Expected:** JSON 400 with `invalid_request` and the post-conversion local-range
+  validation message, proving the second range check is reached.
+- **Why it can fail:** the post-conversion increasing-range check is removed or
+  timezone offsets are discarded instead of converting the instants.
+- **Compatibility:** skips on Windows; runs on POSIX with `time.tzset()`, including Ubuntu CI.
+
+#### `test_maximum_date_span_is_inclusive`
+- **Action:** request exactly 93 local days.
+- **Expected:** 200.
+- **Why it can fail:** the maximum comparison incorrectly excludes the boundary.
+
+#### `test_large_feed_is_rejected_not_silently_truncated` (2 cases)
+- **Setup:** lower the event cap to two, then create exactly two or three matching rows.
+- **Expected:** complete 200 array at the limit; 422 with `too_many_events` above it.
+- **Why it can fail:** results are silently cut off or overflow detection reads too few rows.
+
+#### `test_private_responses_are_not_cacheable` (2 cases)
+- **Action:** request valid and invalid feed windows.
+- **Expected:** private/no-store, Vary: Cookie and no wildcard CORS header.
+- **Why it can fail:** sensitive responses are cached or exposed cross-origin.
+
+#### `test_access_errors_have_no_redirect_and_precede_filter_validation`
+- **Action:** send malformed filters anonymously and as a client.
+- **Expected:** 401/403 with stable JSON codes, not a redirect or filter-validation error.
+- **Why it can fail:** validation runs before access checks or Flask-Login HTML redirects leak in.
+
+#### `test_unknown_session_user_is_not_authenticated`
+- **Action:** request events with a session referring to a nonexistent user.
+- **Expected:** JSON 401.
+- **Why it can fail:** the route trusts a session ID without reloading its user.
+
+#### `test_database_failure_returns_generic_json_and_recovers`
+- **Action:** force the query to raise a database error, then retry normally.
+- **Expected:** generic 503 with no private SQL text and a successful later query.
+- **Why it can fail:** database errors leak or leave the session unusable.
+
+#### `test_unexpected_errors_keep_server_error_semantics`
+- **Action:** raise an unexpected programming ValueError with production-style exception handling.
+- **Expected:** generic JSON 500, not a misleading input-error 400.
+- **Why it can fail:** a blanket ValueError handler hides genuine programming faults.
+
+#### `test_feed_does_not_accept_mutations` (4 cases)
+- **Action:** POST/PUT/PATCH/DELETE to the feed with a forged appointment status.
+- **Expected:** 405; the saved appointment remains confirmed.
+- **Why it can fail:** the read-only endpoint accepts mutation methods or persists supplied data.
+
+#### `test_head_request_has_no_body`
+- **Action:** HEAD a valid authenticated feed window.
+- **Expected:** 200 with JSON headers and an empty body.
+- **Why it can fail:** automatic HEAD semantics are broken.
+
+#### `test_urls_support_application_mount_prefix`
+- **Action:** request the feed under SCRIPT_NAME `/clinic` and build its endpoint URL.
+- **Expected:** detail URLs preserve the prefix; `api.events` builds the canonical path.
+- **Why it can fail:** URLs are hardcoded instead of generated with `url_for`.
+
+#### `test_event_titles_remain_json_text_not_html`
+- **Action:** serialize a script-like appointment reason.
+- **Expected:** JSON text with the original title and no notes field, never an HTML response.
+- **Why it can fail:** the endpoint renders HTML or includes extra model fields.
+
+#### `test_feed_is_read_only_and_preserves_private_notes`
+- **Action:** fetch the same appointment twice and reload it from the database.
+- **Expected:** status, private notes and row count remain unchanged.
+- **Why it can fail:** a GET accidentally writes or removes appointment data.
+
+#### `test_real_login_feed_detail_and_logout_work_together`
+- **Action:** use the real factory/login, fetch an owned event, follow its detail URL and log out.
+- **Expected:** access changes from 401 to a valid feed/detail page and back to 401.
+- **Why it can fail:** factory registration, actual session authentication or detail links broke.
+
+#### `test_openapi_document_matches_runtime_contract`
+- **Action:** parse the JSON specification and compare required bounds, event fields,
+  statuses and response limit to runtime data and constants.
+- **Expected:** documentation and implementation agree.
+- **Why it can fail:** the API evolves without updating its machine-readable contract.
+
+#### `test_literal_z_and_fractional_seconds_are_supported`
+- **Action:** query literal Z bounds and serialize a booking with fractional seconds.
+- **Expected:** the matching event and its original microsecond precision.
+- **Why it can fail:** ISO parsing or serialization drops supported precision/UTC notation.
+
+#### `test_local_timezone_conversion_failure_is_a_safe_input_error`
+- **Action:** simulate a platform-local timezone conversion failure.
+- **Expected:** safe JSON 400 without internal configuration text.
+- **Why it can fail:** platform conversion exceptions escape or leak details.
+
+#### `test_database_failure_while_loading_session_user_returns_json`
+- **Action:** force the session-user lookup to raise a database exception.
+- **Expected:** generic JSON 503 rather than an HTML error before the feed query.
+- **Why it can fail:** only the final appointment query is inside database-error handling.
 
 ---
 
