@@ -27,3 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - [PS-25] Improve Claude PR review prompt with inline comments and allowed tools
+
+### Security
+
+- [PS-10] Protect sessions, forms and private routes with validation and request limits

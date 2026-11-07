@@ -3,16 +3,14 @@ from datetime import date, datetime
 from flask import (
     Blueprint,
     abort,
-    current_app,
     redirect,
     render_template,
     request,
     url_for,
 )
 from flask_login import current_user, login_required
-from flask_wtf.csrf import generate_csrf, validate_csrf
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy.exc import SQLAlchemyError
-from wtforms.validators import ValidationError
 
 from app.appointments import (
     REASON_MAX_LENGTH,
@@ -36,6 +34,7 @@ from app.physio_management import (
     update_physio_notes,
     update_resource_quantity,
 )
+from app.security import check_csrf as _check_csrf
 
 physio = Blueprint("physio", __name__, url_prefix="/physio")
 
@@ -105,14 +104,6 @@ def _single_field(name, default=None):
     return values[0] if values else default
 
 
-def _check_csrf():
-    if current_app.config.get("WTF_CSRF_ENABLED", True):
-        try:
-            validate_csrf(_single_field("csrf_token"))
-        except ValidationError:
-            abort(400, description="Invalid or missing CSRF token.")
-
-
 def _parse_datetime(name):
     value = _single_field(name)
     if value is None:
@@ -156,6 +147,8 @@ def _parse_resources():
 @physio.get("/dashboard")
 @login_required
 def dashboard():
+    if any(len(request.args.getlist(field)) > 1 for field in ("date", "view")):
+        raise PhysioValidationError("Submit each field only once.")
     raw_date = request.args.get("date")
     today = date.today()  # noqa: DTZ011 (database uses naive local times)
     try:
