@@ -3,16 +3,14 @@ from datetime import datetime
 from flask import (
     Blueprint,
     abort,
-    current_app,
     redirect,
     render_template,
     request,
     url_for,
 )
 from flask_login import current_user, login_required
-from flask_wtf.csrf import generate_csrf, validate_csrf
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy.exc import SQLAlchemyError
-from wtforms.validators import ValidationError
 
 from app.appointments import (
     REASON_MAX_LENGTH,
@@ -25,6 +23,9 @@ from app.appointments import cancel_appointment as cancel_booking
 from app.appointments import create_appointment as book_appointment
 from app.extensions import db
 from app.models import Resource, User
+from app.security import check_csrf as _check_csrf
+
+MAX_FORM_ID = 2147483647
 
 student = Blueprint("student", __name__, url_prefix="/student")
 student.add_url_rule("/appointments", endpoint="appointments", build_only=True)
@@ -38,15 +39,6 @@ class BookingInputError(ValueError):
 def check_student_role():
     if current_user.is_authenticated and current_user.role != "client":
         abort(403)
-
-
-def _check_csrf():
-    if not current_app.config.get("WTF_CSRF_ENABLED", True):
-        return
-    try:
-        validate_csrf(request.form.get("csrf_token"))
-    except ValidationError:
-        abort(400, description="Invalid or missing CSRF token.")
 
 
 def _booking_form(errors=None, status=200):
@@ -94,6 +86,9 @@ def my_appointments():
 
 
 def _parse_booking_form():
+    for field in ("physio_id", "start_time", "end_time", "reason"):
+        if len(request.form.getlist(field)) > 1:
+            raise BookingInputError("Submit each field only once.")
     resources = {}
     for key in request.form:
         if key.startswith("resource_"):
@@ -101,6 +96,8 @@ def _parse_booking_form():
                 raise BookingInputError("Submit each equipment quantity only once.")
             try:
                 resource_id = int(key.removeprefix("resource_"))
+                if not 1 <= resource_id <= MAX_FORM_ID:
+                    raise ValueError
             except ValueError:
                 raise BookingInputError("Select valid equipment.") from None
             raw_quantity = request.form[key].strip()
@@ -116,11 +113,15 @@ def _parse_booking_form():
                 ) from None
     try:
         physio_id = int(request.form.get("physio_id", ""))
+        if not 1 <= physio_id <= MAX_FORM_ID:
+            raise ValueError
     except ValueError:
         raise BookingInputError("Select a valid physiotherapist.") from None
     dates = []
     for field, label in [("start_time", "start"), ("end_time", "end")]:
         try:
+            if len(request.form.get(field, "")) > 64:
+                raise ValueError
             dates.append(datetime.fromisoformat(request.form.get(field, "")))
         except ValueError:
             raise BookingInputError(f"Enter a valid {label} date and time.") from None
@@ -167,6 +168,8 @@ def create_appointment():
 @login_required
 def cancel_appointment(id):
     _check_csrf()
+    if not 1 <= id <= MAX_FORM_ID:
+        abort(404)
     try:
         cancel_booking(id, current_user.id)
     except LookupError:

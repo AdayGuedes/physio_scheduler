@@ -5,6 +5,7 @@ from app.api import api
 from app.auth import auth
 from app.extensions import db, login_manager, migrate
 from app.physio import physio
+from app.security import init_security
 from app.seed import seed_dev_users_command, seed_inventory_command
 from app.student import student
 from config import Config
@@ -25,5 +26,6 @@ def create_app():
     app.register_blueprint(api)
     app.cli.add_command(seed_inventory_command)
     app.cli.add_command(seed_dev_users_command)
+    init_security(app)
 
     return app

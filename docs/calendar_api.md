@@ -29,8 +29,9 @@ Handled responses use `Cache-Control: private, no-store` and `Vary: Cookie`.
 There is no wildcard CORS header or cross-origin credential support. GET is
 read-only and does not require a CSRF token. POST/PUT/PATCH/DELETE are not supported;
 all appointment and inventory writes remain on their existing protected routes.
-Rate limiting and deployment-wide cookie/header settings remain the PS-10/PS-21
-security work rather than adding a separate authentication or rate-limit system here.
+PS-10 adds application-wide response headers, safe cookie defaults and per-IP
+request limits through the same app factory. See [backend_security.md](backend_security.md).
+Production HTTPS, trusted proxy configuration and shared rate-limit storage remain PS-21.
 
 ## Request
 
@@ -145,15 +146,18 @@ Application errors use a safe message and stable code:
 | 401 | `authentication_required` | No valid authenticated user |
 | 403 | `forbidden` | Logged-in user is not a physio |
 | 422 | `too_many_events` | More than 1,000 events; reduce the range |
+| 429 | `rate_limited` | Request limit exceeded; wait for `Retry-After` before retrying |
 | 500 | `internal_error` | Unexpected failure; normal Flask server-error logging remains active |
 | 503 | `unavailable` | Database failure, including a failed session-user lookup |
 
 Database errors roll back the failed read transaction and return no SQL details.
 Unexpected programming exceptions are not disguised as 400. Flask's standard
-routing responses (for example 404/405) may still be HTML; the frontend must check
-the HTTP status/content type before parsing an error body. HEAD is automatically
+routing responses under `/api/` (for example 404/405) are also JSON in the full app
+after PS-10. Independently registered blueprints can still use Flask's HTML defaults;
+the frontend must check status/content type before parsing. HEAD is automatically
 supported with the GET status/headers and no body; OPTIONS is Flask's standard
-automatic method-information response.
+automatic method-information response, subject to the factory's role checks in
+the full application after PS-10.
 
 ## Frontend handoff (PS-17/PS-19)
 
@@ -180,7 +184,7 @@ owner IDs. An optional `extraParams: {status: 'confirmed'}` filters active booki
 For static JavaScript files, pass the generated URL from a template rather than
 copying Jinja syntax into the static file. A failed source fetch must not look like
 an empty agenda: show a visible message; for 401 ask the user to sign in again,
-for 422 request a smaller view, and for 503 allow a retry. After a successful
+for 422 request a smaller view, for 429 respect `Retry-After`, and for 503 allow a retry. After a successful
 appointment edit or status change, call `calendar.refetchEvents()` so the feed
 is fetched again. `no-store` prevents browser caching; it does not disable
 FullCalendar's separate in-memory event-source state.
