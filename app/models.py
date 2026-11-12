@@ -8,16 +8,23 @@ class User(db.Model, UserMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
-    email = db.Column(db.String, unique=True, nullable=False)
+    email = db.Column(db.String, nullable=False)
     password_hash = db.Column(db.String, nullable=False)
     role = db.Column(db.Enum("physio", "client", name="user_role"), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "email",
+            name="uq_users_email",
+        ),
+    )
 
 
 class Resource(db.Model):
     __tablename__ = "resources"
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False, unique=True)
+    name = db.Column(db.String, nullable=False)
     total_quantity = db.Column(db.Integer, nullable=False)
     type = db.Column(
         db.Enum(
@@ -31,13 +38,20 @@ class Resource(db.Model):
             name="resource_type",
         ),
         nullable=False,
-        unique=True,
     )
     appointment_resources = db.relationship("AppointmentResource", backref="resource")
 
     __table_args__ = (
         db.CheckConstraint(
             "total_quantity > 0", name="ck_resources_total_quantity_positive"
+        ),
+        db.UniqueConstraint(
+            "name",
+            name="uq_resources_name",
+        ),
+        db.UniqueConstraint(
+            "type",
+            name="uq_resources_type",
         ),
     )
 
@@ -47,6 +61,11 @@ class Appointment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     client_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    physio_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", name="fk_appointments_physio_id_users"),
+        nullable=False,
+    )
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
     reason = db.Column(db.String, nullable=False)
@@ -66,7 +85,10 @@ class Appointment(db.Model):
     appointment_resources = db.relationship(
         "AppointmentResource", backref="appointment"
     )
-    client = db.relationship("User", backref="appointments")
+    client = db.relationship("User", foreign_keys=[client_id], backref="appointments")
+    physio = db.relationship(
+        "User", foreign_keys=[physio_id], backref="physio_appointments"
+    )
 
     __table_args__ = (
         db.CheckConstraint(
