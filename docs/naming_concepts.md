@@ -283,7 +283,7 @@ the messages in the template.
     "available": False,
     "reason": "physio_busy",
     "message": "Physio is not available at this time.",
-    "detail": {"physio_id": 7},
+    "detail": {"physio_id": 7}
 }
 
 # Insufficient equipment
@@ -294,8 +294,8 @@ the messages in the template.
     "detail": {
         "resource_name": "GameReady boots (feet)",
         "requested": 2,
-        "available_units": 0,
-    },
+        "available_units": 0
+    }
 }
 ```
 
