@@ -1,7 +1,6 @@
 
 /* =========================================
    PHYSIO SCHEDULER - SHARED STYLES
-   PS-12: Base layout and common styling
    ========================================= */
 
 /* ---------- Theme variables ---------- */
@@ -78,24 +77,24 @@ body {
 
 .app-navbar .nav-link:hover,
 .app-navbar .nav-link:focus {
-  color: var(--union-orange);
+  color: #c2410c;
 }
 
 .app-navbar .logout-link {
-  color: var(--union-orange);
+  color: #c2410c;
 }
 
 /* ---------- Main buttons ---------- */
 
 .btn-primary {
-  background-color: var(--union-orange);
-  border-color: var(--union-orange);
+  background-color: #c2410c;
+  border-color: #c2410c;
 }
 
 .btn-primary:hover,
 .btn-primary:focus {
-  background-color: var(--union-orange-hover);
-  border-color: var(--union-orange-hover);
+  background-color: #9a3412;
+  border-color: #9a3412;
 }
 
 .btn-primary-custom {
@@ -104,20 +103,20 @@ body {
   padding: 12px 20px;
   border: none;
   border-radius: 6px;
-  background-color: var(--union-orange);
+  background-color: #c2410c;
   color: var(--white);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .btn-primary-custom:hover {
-  background-color: var(--union-orange-hover);
+  background-color: #9a3412;
 }
 
 .btn-primary-custom:focus-visible {
-  outline: 3px solid rgba(241, 99, 33, 0.3);
+  outline: 3px solid rgba(194, 65, 12, 0.3);
   outline-offset: 3px;
 }
 
@@ -245,6 +244,177 @@ body {
   margin-top: 6px;
 }
 
+/* =========================================
+   STUDENT APPOINTMENT PAGES
+   ========================================= */
+
+.appointment-page,
+.appointments-page {
+  width: 100%;
+}
+
+.appointment-container,
+.appointments-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 30px;
+  background-color: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.appointment-container h1,
+.appointments-container h1 {
+  margin-bottom: 12px;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.page-description {
+  margin-bottom: 28px;
+  color: var(--muted-color);
+}
+
+.form-section {
+  margin-bottom: 28px;
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.form-section h2 {
+  margin-bottom: 20px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.form-section label {
+  display: block;
+  margin: 14px 0 7px;
+  font-weight: 600;
+}
+
+.form-section input,
+.form-section select,
+.form-section textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.form-section input:focus,
+.form-section select:focus,
+.form-section textarea:focus {
+  outline: none;
+  border-color: var(--union-orange);
+  box-shadow: 0 0 0 3px rgba(241, 99, 33, 0.15);
+}
+
+.appointment-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.submit-button,
+.cancel-button,
+.cancel-appointment {
+  display: inline-block;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.submit-button {
+  background-color: #c2410c;
+  color: var(--white);
+}
+
+.submit-button:hover {
+  background-color: #9a3412;
+}
+
+.cancel-button {
+  background-color: #e5e7eb;
+  color: var(--text-color);
+}
+
+.cancel-button:hover {
+  background-color: #d1d5db;
+}
+
+#success-message {
+  margin-top: 18px;
+  color: #166534;
+}
+
+.appointment-card {
+  margin-top: 24px;
+  padding: 24px;
+  background-color: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.appointment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.appointment-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.appointment-info p {
+  margin-bottom: 12px;
+}
+
+.status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background-color: #dcfce7;
+  color: #166534;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cancel-appointment {
+  margin-top: 12px;
+  background-color: #dc2626;
+  color: var(--white);
+}
+
+.cancel-appointment:hover {
+  background-color: #b91c1c;
+}
+
+.no-appointments {
+  margin-top: 24px;
+  padding: 28px;
+  text-align: center;
+  background-color: var(--white);
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+}
+
+.no-appointments a {
+  color: #c2410c;
+  font-weight: 600;
+}
+
 /* ---------- Responsive design ---------- */
 
 @media (max-width: 991px) {
@@ -295,5 +465,29 @@ body {
 
   .login-card h1 {
     font-size: 1.7rem;
+  }
+
+  .appointment-container,
+  .appointments-container {
+    padding: 20px;
+  }
+
+  .form-section {
+    padding: 15px;
+  }
+
+  .appointment-buttons {
+    flex-direction: column;
+  }
+
+  .submit-button,
+  .cancel-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .appointment-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
