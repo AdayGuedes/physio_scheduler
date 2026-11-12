@@ -1,4 +1,3 @@
-
 from flask import Flask, redirect, url_for
 
 from app import models  # noqa: F401  (registers models in db.metadata)

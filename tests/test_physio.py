@@ -467,7 +467,9 @@ def test_posts_require_session_bound_csrf(physio_app, people, suffix):
     data = (
         {"reason": "Changed"}
         if suffix == "edit"
-        else {"notes": "Note"} if suffix == "notes" else {"total_quantity": "3"}
+        else {"notes": "Note"}
+        if suffix == "notes"
+        else {"total_quantity": "3"}
     )
     for token in [None, "invalid"]:
         assert (
