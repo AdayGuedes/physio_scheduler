@@ -13,69 +13,145 @@
       rel="stylesheet"
     />
 
-    <!-- Custom CSS -->
+    <!-- Project CSS -->
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+
+    {% block styles %}{% endblock %}
   </head>
 
   <body>
-    {% block navbar %}
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg app-navbar">
       <div class="container">
         <a
-          class="navbar-brand"
+          class="navbar-brand d-flex align-items-center"
           href="https://www.unionky.edu/"
           target="_blank"
           rel="noopener noreferrer"
         >
           <img
             src="{{ url_for('static', filename='images/union-logo.png') }}"
-            alt="Union College logo"
+            alt="Union logo"
             class="union-logo"
           />
         </a>
 
-        <a class="navbar-brand" href="/">
-          Physio Scheduler
-        </a>
+        <span class="navbar-text app-name">Physio Scheduler</span>
 
         <button
           class="navbar-toggler"
           type="button"
           data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
+          data-bs-target="#navbarMenu"
+          aria-controls="navbarMenu"
           aria-expanded="false"
           aria-label="Toggle navigation"
         >
           <span class="navbar-toggler-icon"></span>
         </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <a class="nav-link" href="/">
-                Home
-              </a>
-            </li>
+        <div class="collapse navbar-collapse" id="navbarMenu">
+          <ul class="navbar-nav ms-auto align-items-lg-center">
+
+            {% if current_user.is_authenticated %}
+
+              {% if current_user.role == 'client' %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{ url_for('student.my_appointments') }}">
+                    My Appointments
+                  </a>
+                </li>
+
+                <li class="nav-item">
+                  <a class="nav-link" href="{{ url_for('student.new_appointment') }}">
+                    New Appointment
+                  </a>
+                </li>
+
+              {% elif current_user.role == 'physio' %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{{ url_for('physio.dashboard') }}">
+                    Dashboard
+                  </a>
+                </li>
+
+                <li class="nav-item">
+                  <a class="nav-link" href="{{ url_for('physio.inventory') }}">
+                    Inventory
+                  </a>
+                </li>
+              {% endif %}
+
+              <li class="nav-item">
+                <a class="nav-link logout-link" href="{{ url_for('auth.logout') }}">
+                  Logout
+                </a>
+              </li>
+
+            {% else %}
+
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('auth.login') }}">
+                  Login
+                </a>
+              </li>
+
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('auth.register') }}">
+                  Register
+                </a>
+              </li>
+
+            {% endif %}
+
           </ul>
         </div>
       </div>
     </nav>
-    {% endblock %}
 
-    {% block content %}
-    {% endblock %}
+    <!-- Main content -->
+    <main class="main-content">
+      <div class="container">
 
-    {% block scripts %}
-    {% endblock %}
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="alert"
+                  aria-label="Close"
+                ></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="container text-center">
+        <p class="mb-0">
+          &copy; {{ current_year if current_year is defined else 2026 }}
+          Physio Scheduler | Union
+        </p>
+      </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
 
     <!-- Bootstrap JavaScript -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
-
