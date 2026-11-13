@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Log out - Physio Scheduler{% endblock %}
 {% block content %}
-<main class="container py-4">
+<div class="py-4">
   <h1>Log out</h1>
   <p>Confirm that you want to end your session.</p>
   <form method="post" action="{{ url_for('auth.logout') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit" class="btn btn-primary">Log out</button>
   </form>
-</main>
+</div>
 {% endblock %}
