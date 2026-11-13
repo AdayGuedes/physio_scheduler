@@ -68,6 +68,11 @@ body {
   font-weight: 700;
 }
 
+a.app-name:hover,
+a.app-name:focus-visible {
+  color: var(--text-color);
+}
+
 .app-navbar .nav-link {
   color: var(--text-color);
   font-weight: 500;
