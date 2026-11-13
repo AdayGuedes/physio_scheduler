@@ -27,9 +27,8 @@
       <div class="container">
         <a
           class="navbar-brand d-flex align-items-center"
-          href="https://www.unionky.edu/"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/"
+          aria-label="Physio Scheduler home"
         >
           <img
             src="{{ url_for('static', filename='images/union-logo.png') }}"
@@ -134,7 +133,13 @@
     <footer class="app-footer">
       <div class="container text-center">
         <p class="mb-0">
-          &copy; Physio Scheduler | Union
+          &copy; Physio Scheduler |
+          <a
+            class="text-reset"
+            href="https://www.unionky.edu/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Union</a>
         </p>
       </div>
     </footer>
