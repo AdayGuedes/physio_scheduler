@@ -1,14 +1,12 @@
 import hashlib
 import secrets
 
-from flask import abort, current_app, g, request
+from flask import abort, g, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import current_user
-from flask_wtf.csrf import validate_csrf
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException
-from wtforms.validators import ValidationError
 
 from app.extensions import csrf, db, login_manager
 
@@ -26,36 +24,28 @@ ERROR_CODES = {
 }
 
 
-def login_limit_key():
-    address = get_remote_address()
+def _login_email_digest():
     if request.mimetype not in {
         "application/x-www-form-urlencoded",
         "multipart/form-data",
     }:
-        return address
+        return None
     emails = request.form.getlist("email")
     if len(emails) != 1 or not 1 <= len(emails[0]) <= 254:
-        return address
+        return None
     normalized = emails[0].strip().lower()
-    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-    return f"{address}:{digest}"
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
-def check_csrf():
-    if not current_app.config.get("WTF_CSRF_ENABLED", True) or g.get("csrf_valid"):
-        return
-    values = request.form.getlist("csrf_token")
-    if len(values) > 1:
-        abort(400, description="Submit each field only once.")
-    token = (
-        values[0]
-        if values
-        else request.headers.get("X-CSRFToken") or request.headers.get("X-CSRF-Token")
-    )
-    try:
-        validate_csrf(token)
-    except ValidationError:
-        abort(400, description="Invalid or missing CSRF token.")
+def login_limit_key():
+    address = get_remote_address()
+    digest = _login_email_digest()
+    return f"{address}:{digest}" if digest else address
+
+
+def login_account_limit_key():
+    digest = _login_email_digest()
+    return f"account:{digest}" if digest else f"ip:{get_remote_address()}"
 
 
 def init_security(app):
@@ -139,6 +129,13 @@ def init_security(app):
             app.view_functions[endpoint] = limiter.limit(
                 app.config[limit], methods=["POST"], override_defaults=False, **options
             )(app.view_functions[endpoint])
+        app.view_functions["auth.login"] = limiter.limit(
+            app.config["RATELIMIT_LOGIN_ACCOUNT"],
+            methods=["POST"],
+            override_defaults=False,
+            key_func=login_account_limit_key,
+            deduct_when=lambda response: response.status_code != 302,
+        )(app.view_functions["auth.login"])
 
     @app.context_processor
     def security_template_context():

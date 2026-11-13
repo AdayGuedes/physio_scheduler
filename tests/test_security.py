@@ -17,7 +17,6 @@ from app import create_app
 from app.auth import authenticate_user, load_user, register_user
 from app.extensions import db
 from app.models import Appointment, Resource, User
-from app.security import check_csrf
 from app.student import BookingInputError, _parse_booking_form
 from config import Config, parse_secure_cookie, parse_trusted_hosts
 
@@ -524,6 +523,7 @@ def test_factory_security_defaults_are_active():
     assert Config.RATELIMIT_ENABLED is True
     assert Config.RATELIMIT_DEFAULT == "120 per minute"
     assert Config.RATELIMIT_LOGIN == "5 per minute;30 per hour"
+    assert Config.RATELIMIT_LOGIN_ACCOUNT == "10 per minute;60 per hour"
     assert Config.RATELIMIT_REGISTER == "5 per hour"
     assert Config.MAX_FORM_PARTS == 50
     assert Config.TRUSTED_HOSTS
@@ -579,8 +579,38 @@ def test_login_limit_separates_emails_on_shared_ip(security_factory):
     )
 
 
+def test_login_account_limit_combines_attempts_from_different_ips(security_factory):
+    app = security_factory(
+        RATELIMIT_ENABLED=True,
+        RATELIMIT_LOGIN="10 per minute",
+        RATELIMIT_LOGIN_ACCOUNT="2 per minute",
+    )
+    client = app.test_client()
+    token = _token(client)
+    for address, email, status in [
+        ("192.0.2.1", " Target@Example.com ", 200),
+        ("192.0.2.2", "target@example.com", 200),
+        ("192.0.2.3", "TARGET@example.com", 429),
+        ("192.0.2.3", "other@example.com", 200),
+    ]:
+        response = client.post(
+            "/auth/login",
+            data={
+                "csrf_token": token,
+                "email": email,
+                "password": "wrong-password",
+            },
+            environ_overrides={"REMOTE_ADDR": address},
+        )
+        assert response.status_code == status
+
+
 def test_successful_login_does_not_consume_failure_budget(security_factory):
-    app = security_factory(RATELIMIT_ENABLED=True, RATELIMIT_LOGIN="1 per minute")
+    app = security_factory(
+        RATELIMIT_ENABLED=True,
+        RATELIMIT_LOGIN="1 per minute",
+        RATELIMIT_LOGIN_ACCOUNT="1 per minute",
+    )
     with app.app_context():
         db.session.add(
             User(
@@ -957,16 +987,14 @@ def test_unrelated_insert_integrity_errors_are_not_hidden(security_app, monkeypa
         assert db.session.scalar(db.select(User)) is None
 
 
-def test_standalone_csrf_helper_rejects_duplicate_tokens(security_app):
-    with (
-        security_app.test_request_context(
-            "/auth/login",
-            method="POST",
-            data=MultiDict([("csrf_token", "one"), ("csrf_token", "two")]),
-        ),
-        pytest.raises(BadRequest),
-    ):
-        check_csrf()
+def test_csrf_protection_rejects_duplicate_tokens(security_app):
+    client = security_app.test_client()
+    token = _token(client)
+    response = client.post(
+        "/auth/login",
+        data=MultiDict([("csrf_token", token), ("csrf_token", token)]),
+    )
+    assert response.status_code == 400
 
 
 def test_standalone_auth_fields_reject_duplicates(security_app):
@@ -996,8 +1024,7 @@ def test_standalone_booking_parser_rejects_duplicates(security_app, field):
         _parse_booking_form()
 
 
-def test_standalone_auth_supports_csrf_header(security_app):
-    security_app.config["WTF_CSRF_CHECK_DEFAULT"] = False
+def test_auth_supports_csrf_header(security_app):
     client = security_app.test_client()
     token = _token(client)
     response = client.post(

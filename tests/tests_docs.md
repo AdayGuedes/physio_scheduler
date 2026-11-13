@@ -3,7 +3,7 @@
 What every test in `tests/` covers, the result it expects, and the usual reasons
 it would fail. On Python 3.13 the suite has 504 collected cases (including
 parametrized cases). One is an expected failure (`xfail`); the DST-fold case
-requires POSIX `time.tzset()` and skips on Windows, where 502 cases pass.
+requires POSIX `time.tzset()` and skips on Windows, where 503 cases pass.
 Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -23,15 +23,16 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 19 | Inventory and dev-users seed functions, `flask seed-inventory` and `flask seed-dev-users` commands |
-| `test_security.py` | 149 | Real-factory CSRF, roles, sessions, account validation, limits, headers and safe errors |
+| `test_security.py` | 150 | Real-factory CSRF, roles, sessions, account validation, limits, headers and safe errors |
 | `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
 ## Shared fixture: `conftest.py`
 
 `app` builds an isolated Flask app with an in-memory SQLite database
-(`SQLALCHEMY_DATABASE_URI="sqlite:///:memory:"`), creates all tables, and drops them
-after the test. Every test that receives `app` starts with empty tables and does not
-touch `instance/app.db`.
+(`SQLALCHEMY_DATABASE_URI="sqlite:///:memory:"`), initializes Flask-WTF CSRF
+protection, creates all tables, and drops them after the test. Focused fixtures
+disable CSRF only when testing another behavior. Every test that receives `app`
+starts with empty tables and does not touch `instance/app.db`.
 
 Tests that call `create_app()` directly (`test_blueprints.py` and the two
 `test_real_app_*` tests) use the real app factory and the real configuration instead.
@@ -1517,10 +1518,15 @@ signed test session without bypassing the real request permission checks.
 - **Expected:** both first attempts are processed; retrying one account returns 429.
 - **Why it can fail:** a shared campus IP exhausts one login budget for every user.
 
+#### `test_login_account_limit_combines_attempts_from_different_ips`
+- **Action:** submit failed logins for one normalized email from three different IPs.
+- **Expected:** the third attempt returns 429, while another email remains available.
+- **Why it can fail:** attackers can bypass the account limit by rotating IPs.
+
 #### `test_successful_login_does_not_consume_failure_budget`
 - **Action:** sign in successfully, then submit repeated wrong passwords for that account.
-- **Expected:** the first failure is processed and the second receives 429.
-- **Why it can fail:** successful sign-ins consume the failed-login budget.
+- **Expected:** the first failure is processed and the second receives 429 under both limits.
+- **Why it can fail:** successful sign-ins consume the IP/email or account budget.
 
 #### `test_calendar_rate_limit_keeps_json_contract`
 - **Action:** exceed a lowered calendar request limit.
@@ -1567,20 +1573,20 @@ signed test session without bypassing the real request permission checks.
 - **Expected:** JSON 405 with `method_not_allowed`, preserving the `Allow` header.
 - **Why it can fail:** error conversion loses status, headers or API content type.
 
-#### `test_standalone_csrf_helper_rejects_duplicate_tokens`
-- **Action:** call the shared helper with duplicate token fields outside global hooks.
-- **Expected:** `BadRequest` before token validation.
-- **Why it can fail:** the fallback helper silently selects one token.
+#### `test_csrf_protection_rejects_duplicate_tokens`
+- **Action:** submit a real login request with duplicate token fields.
+- **Expected:** 400 before token validation or authentication.
+- **Why it can fail:** the form boundary silently selects one token.
 
 #### `test_standalone_auth_fields_reject_duplicates`
 - **Action:** read an auth field with conflicting values outside global hooks.
 - **Expected:** `BadRequest`.
 - **Why it can fail:** standalone auth routes collapse ambiguous fields.
 
-#### `test_standalone_auth_supports_csrf_header`
-- **Action:** disable only automatic CSRF checking and submit a header token.
-- **Expected:** the route's shared helper validates it successfully.
-- **Why it can fail:** fallback checking accepts only form tokens.
+#### `test_auth_supports_csrf_header`
+- **Action:** submit a header token with automatic CSRF checking enabled.
+- **Expected:** Flask-WTF accepts the token and processes the login attempt.
+- **Why it can fail:** the single CSRF mechanism accepts only form tokens.
 
 #### `test_browser_routes_do_not_accept_json_posts`
 - **Action:** submit JSON to the form-based login route.

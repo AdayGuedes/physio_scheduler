@@ -35,7 +35,6 @@ from app.physio_management import (
     update_physio_notes,
     update_resource_quantity,
 )
-from app.security import check_csrf as _check_csrf
 
 physio = Blueprint("physio", __name__, url_prefix="/physio")
 
@@ -189,7 +188,6 @@ def appointment_detail(id):
 @physio.post("/appointments/<int:id>/edit")
 @login_required
 def edit_appointment(id):
-    _check_csrf()
     update_appointment(
         id,
         current_user.id,
@@ -205,7 +203,6 @@ def edit_appointment(id):
 @physio.post("/appointments/<int:id>/notes")
 @login_required
 def update_notes(id):
-    _check_csrf()
     update_physio_notes(id, current_user.id, _single_field("notes"))
     return redirect(url_for("physio.appointment_detail", id=id), code=303)
 
@@ -224,7 +221,6 @@ def inventory():
 @physio.post("/inventory/<int:id>/edit")
 @login_required
 def update_resource(id):
-    _check_csrf()
     try:
         new_quantity = int(_single_field("total_quantity", ""))
     except ValueError:

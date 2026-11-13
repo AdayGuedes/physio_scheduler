@@ -19,7 +19,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db, login_manager
 from app.models import User
-from app.security import check_csrf
 
 auth = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -189,7 +188,6 @@ def register():
     errors = []
 
     if request.method == "POST":
-        check_csrf()
         name = _auth_field("name").strip()
         email = _auth_field("email").strip()
         password = _auth_field("password")
@@ -223,7 +221,6 @@ def login():
     errors = []
 
     if request.method == "POST":
-        check_csrf()
         email = _auth_field("email").strip()
         password = _auth_field("password")
         if len(email) > EMAIL_MAX_LENGTH or len(password) > PASSWORD_MAX_LENGTH:
@@ -264,7 +261,6 @@ def logout():
     """Confirm on GET; end the current session only on a CSRF-protected POST."""
     if request.method == "GET":
         return render_template("auth/logout.html", csrf_token=generate_csrf())
-    check_csrf()
     logout_user()
     session.clear()
     g.pop("csrf_token", None)

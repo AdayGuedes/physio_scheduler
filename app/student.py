@@ -24,7 +24,6 @@ from app.appointments import cancel_appointment as cancel_booking
 from app.appointments import create_appointment as book_appointment
 from app.extensions import db
 from app.models import Resource, User
-from app.security import check_csrf as _check_csrf
 
 MAX_FORM_ID = 2147483647
 
@@ -138,7 +137,6 @@ def _parse_booking_form():
 @student.post("/appointments")
 @login_required
 def create_appointment():
-    _check_csrf()
     try:
         physio_id, start_time, end_time, reason, resources = _parse_booking_form()
         book_appointment(
@@ -171,7 +169,6 @@ def create_appointment():
 @student.post("/appointments/<int:id>/cancel")
 @login_required
 def cancel_appointment(id):
-    _check_csrf()
     if not 1 <= id <= MAX_FORM_ID:
         abort(404)
     try:

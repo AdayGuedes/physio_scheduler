@@ -27,12 +27,11 @@ share inventory, but not appointment ownership or clinical notes.
 
 ## Forms and CSRF
 
-Flask-WTF `CSRFProtect` is enabled by default for state-changing requests. Login
-and registration now require tokens too. Missing, invalid, expired or cross-session
-tokens return 400 before account or appointment mutations. Existing student and
-physio routes also retain the shared `check_csrf()` helper for standalone blueprint
-applications. Unit fixtures may explicitly disable CSRF to isolate other behavior;
-the factory/security integration tests keep it enabled.
+Flask-WTF `CSRFProtect` is the single CSRF validation mechanism for state-changing
+requests, including login and registration. Missing, invalid, expired or cross-session
+tokens return 400 before account or appointment mutations. Standalone blueprint
+test apps initialize the same extension; focused unit fixtures may explicitly disable
+CSRF to isolate other behavior. Factory/security integration tests keep it enabled.
 
 The existing views pass a signed token string to templates as `csrf_token`:
 
@@ -108,12 +107,14 @@ the backend passes the CSRF token that template must render when it is added.
 ## Request limits
 
 Flask-Limiter uses the actual remote address, not arbitrary `X-Forwarded-For` input.
-The general limit applies per IP and endpoint. The login limit uses the remote IP
-and a digest of the normalized submitted email, and only failed POSTs consume its
-budget. Untrusted forwarded headers do not change that remote IP:
+The general limit applies per IP and endpoint. Login has two independent limits:
+one keyed by remote IP plus a digest of the normalized submitted email, and one
+keyed by that email digest alone. Only failed POSTs consume either budget.
+Untrusted forwarded headers do not change the remote IP:
 
 - All non-static routes: 120 requests per minute.
-- Failed login POSTs: additionally 5 per minute and 30 per hour per IP/email.
+- Failed login POSTs: additionally 5 per minute and 30 per hour per IP/email,
+  plus 10 per minute and 60 per hour per email across all IPs.
 - Registration POSTs: additionally 5 per hour.
 
 Exceeding a limit returns 429 with `Retry-After`. API callers receive JSON with
@@ -201,6 +202,17 @@ temporary test directory; never point it at project data.
 - Black, Ruff, pip dependency check and `git diff --check` passed.
 - The initial PR's Python 3.11 CI passed. The review correction needs a fresh CI
   result after the updated branch is pushed.
+
+### Optional review improvements (2026-11-12)
+
+- Failed logins now have an additional per-account limit across IP addresses;
+  successful logins do not consume either login budget. The account key is a
+  digest of the normalized email rather than the plaintext address.
+- Flask-WTF `CSRFProtect` is now the sole CSRF validator. Standalone test apps
+  initialize that extension too; duplicate form-field checks remain in the
+  application's request boundary.
+- Windows full suite: 503 passed, 1 platform skip and 1 pre-existing xfail.
+  A fresh CI run is still needed after these optional changes are pushed.
 
 References: [Flask security guidance](https://flask.palletsprojects.com/en/stable/web-security/),
 [Flask-WTF CSRF](https://flask-wtf.readthedocs.io/en/1.2.x/csrf/),

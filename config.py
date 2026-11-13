@@ -38,6 +38,7 @@ class Config:
     RATELIMIT_ENABLED = True
     RATELIMIT_DEFAULT = "120 per minute"
     RATELIMIT_LOGIN = "5 per minute;30 per hour"
+    RATELIMIT_LOGIN_ACCOUNT = "10 per minute;60 per hour"
     RATELIMIT_REGISTER = "5 per hour"
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI") or "memory://"
     RATELIMIT_HEADERS_ENABLED = True

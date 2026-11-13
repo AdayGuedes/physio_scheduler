@@ -3,7 +3,7 @@
 import pytest
 from flask import Flask
 
-from app.extensions import db, login_manager
+from app.extensions import csrf, db, login_manager
 
 
 @pytest.fixture
@@ -18,6 +18,7 @@ def app():
 
     db.init_app(test_app)
     login_manager.init_app(test_app)
+    csrf.init_app(test_app)
 
     with test_app.app_context():
         db.create_all()
