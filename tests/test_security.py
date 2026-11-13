@@ -4,10 +4,11 @@ from datetime import datetime
 from importlib import import_module
 
 import pytest
+from flask import render_template_string
 from flask_login.utils import encode_cookie
 from itsdangerous.timed import TimestampSigner
 from jinja2 import ChoiceLoader, DictLoader
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 from werkzeug.security import generate_password_hash
@@ -18,7 +19,7 @@ from app.extensions import db
 from app.models import Appointment, Resource, User
 from app.security import check_csrf
 from app.student import BookingInputError, _parse_booking_form
-from config import Config
+from config import Config, parse_secure_cookie, parse_trusted_hosts
 
 
 @pytest.fixture
@@ -96,8 +97,8 @@ def people(security_app):
         return [u.id for u in users], appointment.id, bed.id
 
 
-def _token(client, path="/auth/login"):
-    response = client.get(path)
+def _token(client, path="/auth/login", **kwargs):
+    response = client.get(path, **kwargs)
     assert response.status_code == 200
     match = re.search(rb'name="csrf_token" value="([^"]+)"', response.data)
     assert match is not None
@@ -355,7 +356,7 @@ def test_auth_database_errors_are_safe(security_app, monkeypatch, path, helper):
             "name": "New User",
         },
     )
-    assert response.status_code == 503
+    assert response.status_code == 500
     assert "private SQL" not in response.text
 
 
@@ -381,11 +382,31 @@ def test_security_headers_and_private_cache_policy(security_app, path):
     response = security_app.test_client().get(path)
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["X-Frame-Options"] == "DENY"
-    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Referrer-Policy"] == "same-origin"
     assert "object-src 'none'" in response.headers["Content-Security-Policy"]
     assert "'unsafe-inline'" not in response.headers["Content-Security-Policy"]
     assert response.cache_control.no_store and response.cache_control.private
     assert "Cookie" in response.vary
+
+
+def test_public_route_varies_by_cookie_without_touching_session(security_app):
+    security_app.add_url_rule("/security-public", view_func=lambda: "public")
+    response = security_app.test_client().get("/security-public")
+    assert response.status_code == 200
+    assert "Cookie" in response.vary
+
+
+def test_csp_nonce_matches_template_context(security_app):
+    security_app.add_url_rule(
+        "/security-nonce",
+        view_func=lambda: render_template_string(
+            '<script nonce="{{ csp_nonce }}"></script>'
+        ),
+    )
+    response = security_app.test_client().get("/security-nonce")
+    nonce = re.search(r'<script nonce="([^"]+)"', response.text)
+    assert nonce is not None
+    assert f"'nonce-{nonce.group(1)}'" in response.headers["Content-Security-Policy"]
 
 
 def test_cookie_defaults_are_safe_for_local_development(security_app):
@@ -404,6 +425,65 @@ def test_https_sets_hsts_and_can_use_secure_cookies(security_factory):
     )
 
 
+def test_https_login_and_logout_accept_same_origin_referrer(security_factory):
+    app = security_factory(SESSION_COOKIE_SECURE=True)
+    with app.app_context():
+        db.session.add(
+            User(
+                name="HTTPS user",
+                email="https-user@example.com",
+                role="client",
+                password_hash=generate_password_hash("valid-password"),
+            )
+        )
+        db.session.commit()
+    client = app.test_client()
+    base_url = "https://localhost"
+    token = _token(client, base_url=base_url)
+    response = client.post(
+        "/auth/login",
+        base_url=base_url,
+        headers={"Referer": "https://localhost/auth/login"},
+        data={
+            "csrf_token": token,
+            "email": "https-user@example.com",
+            "password": "valid-password",
+        },
+    )
+    assert response.status_code == 302
+    token = _token(client, "/auth/logout", base_url=base_url)
+    response = client.post(
+        "/auth/logout",
+        base_url=base_url,
+        headers={"Referer": "https://localhost/auth/logout"},
+        data={"csrf_token": token},
+    )
+    assert response.status_code == 302
+
+
+def test_https_rejects_missing_or_foreign_referrer(security_factory):
+    client = security_factory(SESSION_COOKIE_SECURE=True).test_client()
+    token = _token(client, base_url="https://localhost")
+    data = {
+        "csrf_token": token,
+        "email": "missing@example.com",
+        "password": "valid-password",
+    }
+    assert (
+        client.post("/auth/login", base_url="https://localhost", data=data).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            "/auth/login",
+            base_url="https://localhost",
+            headers={"Referer": "https://attacker.example/login"},
+            data=data,
+        ).status_code
+        == 400
+    )
+
+
 def test_untrusted_hosts_are_rejected(security_app):
     assert (
         security_app.test_client()
@@ -411,6 +491,47 @@ def test_untrusted_hosts_are_rejected(security_app):
         .status_code
         == 400
     )
+
+
+@pytest.mark.parametrize("value", [",", " , ", "  "])
+def test_empty_trusted_host_configuration_fails_startup(security_factory, value):
+    assert parse_trusted_hosts(value) == ()
+    with pytest.raises(RuntimeError, match="TRUSTED_HOSTS"):
+        security_factory(TRUSTED_HOSTS=parse_trusted_hosts(value))
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("1", True),
+        ("true", True),
+        ("yes", True),
+        ("on", True),
+        ("0", False),
+        ("false", False),
+    ],
+)
+def test_secure_cookie_flag_accepts_common_boolean_values(value, expected):
+    assert parse_secure_cookie(value) is expected
+
+
+def test_secure_cookie_flag_rejects_unknown_values():
+    with pytest.raises(ValueError, match="SESSION_COOKIE_SECURE"):
+        parse_secure_cookie("surprise")
+
+
+def test_factory_security_defaults_are_active():
+    assert Config.RATELIMIT_ENABLED is True
+    assert Config.RATELIMIT_DEFAULT == "120 per minute"
+    assert Config.RATELIMIT_LOGIN == "5 per minute;30 per hour"
+    assert Config.RATELIMIT_REGISTER == "5 per hour"
+    assert Config.MAX_FORM_PARTS == 50
+    assert Config.TRUSTED_HOSTS
+
+
+def test_non_debug_memory_rate_store_warns(security_factory, caplog):
+    security_factory(TESTING=False, RATELIMIT_ENABLED=True)
+    assert "per-process memory storage" in caplog.text
 
 
 def test_login_attempts_are_rate_limited(security_factory):
@@ -428,6 +549,85 @@ def test_login_attempts_are_rate_limited(security_factory):
     assert response.status_code == 429 and "Retry-After" in response.headers
 
 
+def test_login_limit_separates_emails_on_shared_ip(security_factory):
+    client = security_factory(
+        RATELIMIT_ENABLED=True, RATELIMIT_LOGIN="1 per minute"
+    ).test_client()
+    token = _token(client)
+    for email in ("first@example.com", "second@example.com"):
+        assert (
+            client.post(
+                "/auth/login",
+                data={
+                    "csrf_token": token,
+                    "email": email,
+                    "password": "invalid-password",
+                },
+            ).status_code
+            == 200
+        )
+    assert (
+        client.post(
+            "/auth/login",
+            data={
+                "csrf_token": token,
+                "email": "first@example.com",
+                "password": "invalid-password",
+            },
+        ).status_code
+        == 429
+    )
+
+
+def test_successful_login_does_not_consume_failure_budget(security_factory):
+    app = security_factory(RATELIMIT_ENABLED=True, RATELIMIT_LOGIN="1 per minute")
+    with app.app_context():
+        db.session.add(
+            User(
+                name="Successful login",
+                email="success@example.com",
+                role="client",
+                password_hash=generate_password_hash("valid-password"),
+            )
+        )
+        db.session.commit()
+    client = app.test_client()
+    assert (
+        client.post(
+            "/auth/login",
+            data={
+                "csrf_token": _token(client),
+                "email": "success@example.com",
+                "password": "valid-password",
+            },
+        ).status_code
+        == 302
+    )
+    token = _token(client)
+    assert (
+        client.post(
+            "/auth/login",
+            data={
+                "csrf_token": token,
+                "email": "success@example.com",
+                "password": "wrong-password",
+            },
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/auth/login",
+            data={
+                "csrf_token": token,
+                "email": "success@example.com",
+                "password": "wrong-password",
+            },
+        ).status_code
+        == 429
+    )
+
+
 def test_calendar_rate_limit_keeps_json_contract(security_factory):
     app = security_factory(RATELIMIT_ENABLED=True, RATELIMIT_DEFAULT="1 per minute")
     client = app.test_client()
@@ -435,7 +635,29 @@ def test_calendar_rate_limit_keeps_json_contract(security_factory):
     response = client.get("/api/events")
     assert response.status_code == 429
     assert response.is_json and response.json["code"] == "rate_limited"
+    assert response.json["error"] == "Request limit exceeded."
     assert response.cache_control.no_store
+
+
+def test_registration_attempts_are_rate_limited(security_factory):
+    app = security_factory(RATELIMIT_ENABLED=True, RATELIMIT_REGISTER="1 per hour")
+    client = app.test_client()
+    token = _token(client, "/auth/register")
+    data = {
+        "csrf_token": token,
+        "name": "New user",
+        "email": "new@example.com",
+        "password": "valid-password",
+    }
+    assert client.post("/auth/register", data=data).status_code == 302
+    assert client.post("/auth/register", data=data).status_code == 429
+
+
+@pytest.mark.parametrize("data", [{"bad": "\x00"}, {str(i): "x" for i in range(51)}])
+def test_form_boundary_rejects_nul_and_too_many_fields(security_app, data):
+    client = security_app.test_client()
+    response = client.post("/auth/login", data={"csrf_token": _token(client), **data})
+    assert response.status_code == 400
 
 
 @pytest.mark.parametrize("secret", [None, "", "   "])
@@ -803,10 +1025,26 @@ def test_api_database_errors_before_view_are_safe(security_app, people, monkeypa
 
     monkeypatch.setattr(db.session, "get", fail)
     response = client.get("/api/events")
-    assert response.status_code == 503
+    assert response.status_code == 500
     assert (
-        response.json["code"] == "unavailable" and "private user" not in response.text
+        response.json["code"] == "internal_error"
+        and "private user" not in response.text
     )
+
+
+def test_api_connection_failure_before_view_is_temporary(
+    security_app, people, monkeypatch
+):
+    client = _as_user(security_app, people[0][2])
+
+    def fail(*args, **kwargs):
+        raise OperationalError("private statement", {}, Exception("private connection"))
+
+    monkeypatch.setattr(db.session, "get", fail)
+    response = client.get("/api/events")
+    assert response.status_code == 503
+    assert response.json["code"] == "unavailable"
+    assert "private" not in response.text
 
 
 def test_unscoped_api_errors_are_generic_json(security_app):

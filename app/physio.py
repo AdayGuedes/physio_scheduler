@@ -3,6 +3,7 @@ from datetime import date, datetime
 from flask import (
     Blueprint,
     abort,
+    current_app,
     redirect,
     render_template,
     request,
@@ -78,6 +79,7 @@ def invalid_management_request(error):
 @physio.errorhandler(BookingTransactionError)
 def management_unavailable(error):
     db.session.rollback()
+    current_app.logger.exception("Physio management error at %s", request.endpoint)
     return (
         render_template(
             "physio/error.html",

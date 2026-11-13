@@ -1,9 +1,9 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 482 collected cases (including
+it would fail. On Python 3.13 the suite has 504 collected cases (including
 parametrized cases). One is an expected failure (`xfail`); the DST-fold case
-requires POSIX `time.tzset()` and skips on Windows, where 480 cases pass.
+requires POSIX `time.tzset()` and skips on Windows, where 502 cases pass.
 Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -23,7 +23,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 19 | Inventory and dev-users seed functions, `flask seed-inventory` and `flask seed-dev-users` commands |
-| `test_security.py` | 127 | Real-factory CSRF, roles, sessions, account validation, limits, headers and safe errors |
+| `test_security.py` | 149 | Real-factory CSRF, roles, sessions, account validation, limits, headers and safe errors |
 | `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
 ## Shared fixture: `conftest.py`
@@ -1429,7 +1429,7 @@ signed test session without bypassing the real request permission checks.
 
 #### `test_auth_database_errors_are_safe` (2 cases)
 - **Action:** raise a database error during login or registration.
-- **Expected:** generic 503 without private SQL details.
+- **Expected:** generic 500 without private SQL details.
 - **Why it can fail:** a failed database operation escapes to a debug/error page.
 
 #### `test_oversized_posts_are_rejected`
@@ -1444,8 +1444,18 @@ signed test session without bypassing the real request permission checks.
 
 #### `test_security_headers_and_private_cache_policy` (3 cases)
 - **Action:** request login, API access and an unknown URL.
-- **Expected:** CSP, nosniff, frame denial, no-referrer and private no-store headers.
+- **Expected:** CSP, nosniff, frame denial, same-origin referrers and private no-store headers.
 - **Why it can fail:** headers are applied only to successful/private view responses.
+
+#### `test_public_route_varies_by_cookie_without_touching_session`
+- **Action:** request a public route that does not read the session.
+- **Expected:** `Vary: Cookie` from the security hook.
+- **Why it can fail:** session handling masks a missing response header.
+
+#### `test_csp_nonce_matches_template_context`
+- **Action:** render a script nonce through the template context.
+- **Expected:** the rendered nonce appears in the response CSP.
+- **Why it can fail:** header and template nonces are generated independently.
 
 #### `test_cookie_defaults_are_safe_for_local_development`
 - **Action:** load the login page and inspect the signed session cookie.
@@ -1457,20 +1467,75 @@ signed test session without bypassing the real request permission checks.
 - **Expected:** Secure cookie on HTTPS; HSTS only for actual HTTPS requests.
 - **Why it can fail:** cookie flags or transport detection are incorrect.
 
+#### `test_https_login_and_logout_accept_same_origin_referrer`
+- **Action:** sign in and out over HTTPS using a same-origin referrer.
+- **Expected:** both CSRF-protected POSTs succeed.
+- **Why it can fail:** the referrer policy breaks Flask-WTF's strict HTTPS check.
+
+#### `test_https_rejects_missing_or_foreign_referrer`
+- **Action:** POST over HTTPS without a referrer or with a foreign one.
+- **Expected:** 400 in both cases.
+- **Why it can fail:** HTTPS CSRF origin validation is disabled.
+
 #### `test_untrusted_hosts_are_rejected`
 - **Action:** send a request with an unexpected host.
 - **Expected:** 400 rather than treating the host as an application origin.
 - **Why it can fail:** trusted hosts are not configured or validation is bypassed.
 
+#### `test_empty_trusted_host_configuration_fails_startup` (3 cases)
+- **Action:** parse separators or whitespace with no real hosts and start the app.
+- **Expected:** startup fails with a clear `TRUSTED_HOSTS` error.
+- **Why it can fail:** an empty host tuple silently allows every Host header.
+
+#### `test_secure_cookie_flag_accepts_common_boolean_values` (6 cases)
+- **Action:** parse common true and false environment values.
+- **Expected:** the intended Secure cookie setting.
+- **Why it can fail:** a truthy spelling silently disables Secure cookies.
+
+#### `test_secure_cookie_flag_rejects_unknown_values`
+- **Action:** parse an unsupported cookie flag.
+- **Expected:** a configuration error, not an insecure fallback.
+- **Why it can fail:** misspelled settings silently turn protection off.
+
+#### `test_factory_security_defaults_are_active`
+- **Action:** inspect production-default request limits and host settings.
+- **Expected:** security limits and host configuration remain active.
+- **Why it can fail:** focused test fixtures hide a changed production default.
+
+#### `test_non_debug_memory_rate_store_warns`
+- **Action:** start an app outside debug/tests with in-memory rate counters.
+- **Expected:** a warning explains that counters are per process.
+- **Why it can fail:** production silently uses development-only counter storage.
+
 #### `test_login_attempts_are_rate_limited`
-- **Action:** lower the login limit to two and submit three valid-token attempts.
+- **Action:** lower the login limit to two and submit three failed valid-token attempts.
 - **Expected:** two processed attempts, then 429 with `Retry-After`.
 - **Why it can fail:** auth-specific limits are not bound to POST requests.
 
+#### `test_login_limit_separates_emails_on_shared_ip`
+- **Action:** attempt two accounts from the same IP with a one-attempt limit.
+- **Expected:** both first attempts are processed; retrying one account returns 429.
+- **Why it can fail:** a shared campus IP exhausts one login budget for every user.
+
+#### `test_successful_login_does_not_consume_failure_budget`
+- **Action:** sign in successfully, then submit repeated wrong passwords for that account.
+- **Expected:** the first failure is processed and the second receives 429.
+- **Why it can fail:** successful sign-ins consume the failed-login budget.
+
 #### `test_calendar_rate_limit_keeps_json_contract`
 - **Action:** exceed a lowered calendar request limit.
-- **Expected:** JSON 429 with `rate_limited` and no-store headers.
+- **Expected:** JSON 429 with a fixed message, `rate_limited` and no-store headers.
 - **Why it can fail:** the limiter returns HTML or loses the API error contract.
+
+#### `test_registration_attempts_are_rate_limited`
+- **Action:** exceed a lowered registration limit with a valid CSRF token.
+- **Expected:** the second POST returns 429.
+- **Why it can fail:** only login limits are actually installed.
+
+#### `test_form_boundary_rejects_nul_and_too_many_fields` (2 cases)
+- **Action:** submit a NUL field or more than 50 fields to login.
+- **Expected:** 400 before authentication is attempted.
+- **Why it can fail:** route-level form validation is bypassed.
 
 #### `test_startup_requires_an_explicit_secret` (3 cases)
 - **Action:** initialize with missing, empty or whitespace-only secrets.
@@ -1524,8 +1589,13 @@ signed test session without bypassing the real request permission checks.
 
 #### `test_api_database_errors_before_view_are_safe`
 - **Action:** fail session-user lookup in the central API role check.
-- **Expected:** generic JSON 503, without private SQL.
+- **Expected:** generic JSON 500, without private SQL.
 - **Why it can fail:** only errors inside the API view are handled safely.
+
+#### `test_api_connection_failure_before_view_is_temporary`
+- **Action:** fail session-user lookup with a database connection error.
+- **Expected:** generic JSON 503, without connection details.
+- **Why it can fail:** temporary and unexpected database failures are conflated.
 
 #### `test_unscoped_api_errors_are_generic_json`
 - **Action:** raise an unexpected error at an API-prefixed test URL outside its blueprint.

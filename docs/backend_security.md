@@ -65,13 +65,15 @@ This prevents prefetches or cross-site links from ending an authenticated sessio
   This reduces an obvious timing difference; it is not a claim of constant-time
   authentication or a substitute for rate limits.
 - Duplicate-registration races roll back the failed insert and re-check the email.
-  Unexpected database failures roll back and return generic 503 responses.
+  Connection failures return generic 503 responses; unexpected database failures
+  return generic 500 responses and are logged server-side.
 - Malformed and out-of-range signed session user IDs are anonymous, not server errors.
 - A successful login clears stale session data and rotates the CSRF state. Logout
   clears the session. Both retire any old remember cookie; no remember-me option
   is offered. Submitted external `next` URLs are ignored, not redirected to.
-- Session cookies are HttpOnly and SameSite=Lax. The signed-cookie maximum age is
-  eight hours. Cookie contents are signed, not encrypted: no clinical information,
+- Session cookies are HttpOnly and SameSite=Lax. Flask accepts the signed session
+  for at most eight hours; the browser cookie expires at browser-session end.
+  Cookie contents are signed, not encrypted: no clinical information,
   passwords or appointment details should be stored in them.
 
 ## Request and response protections
@@ -83,7 +85,8 @@ This prevents prefetches or cross-site links from ending an authenticated sessio
   Existing service-level validation still checks real users, resources and quantities.
 - Non-static responses use `Cache-Control: private, no-store` and `Vary: Cookie`.
 - Responses set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-  `Referrer-Policy: no-referrer` and restrictive camera/microphone/geolocation policy.
+  `Referrer-Policy: same-origin` and restrictive camera/microphone/geolocation policy.
+  Same-origin referrers keep Flask-WTF's strict HTTPS CSRF check working.
 - CSP allows same-origin resources and the existing Bootstrap CDN; it forbids
   objects, framing, cross-origin form submission, unsafe inline scripts and eval.
   Any necessary inline script element needs `nonce="{{ csp_nonce }}"`. Event
@@ -92,7 +95,8 @@ This prevents prefetches or cross-site links from ending an authenticated sessio
   change the client-IP rate-limit key. No blanket `ProxyFix` trust is installed.
 - API routing/rate-limit errors are JSON while preserving status and protocol
   headers such as `Allow` and `Retry-After`. Unexpected errors return generic
-  messages; database internals are not rendered in responses.
+  messages; database internals are not rendered in responses. Connection failures
+  return 503; unexpected database failures return 500 and are logged server-side.
 
 The small frontend changes are security wiring: the login token, a logout
 confirmation form and moving the existing cancellation click handler into the
@@ -104,10 +108,12 @@ the backend passes the CSRF token that template must render when it is added.
 ## Request limits
 
 Flask-Limiter uses the actual remote address, not arbitrary `X-Forwarded-For` input.
-The defaults apply per IP and endpoint:
+The general limit applies per IP and endpoint. The login limit uses the remote IP
+and a digest of the normalized submitted email, and only failed POSTs consume its
+budget. Untrusted forwarded headers do not change that remote IP:
 
 - All non-static routes: 120 requests per minute.
-- Login POSTs: additionally 5 per minute and 30 per hour.
+- Failed login POSTs: additionally 5 per minute and 30 per hour per IP/email.
 - Registration POSTs: additionally 5 per hour.
 
 Exceeding a limit returns 429 with `Retry-After`. API callers receive JSON with
@@ -124,18 +130,20 @@ python -m pip install -r requirements-dev.txt
 ```
 
 Existing local `.env` files do not need editing. Defaults allow HTTP development
-on `localhost`, `127.0.0.1` and `[::1]`. The application refuses an empty secret;
+on `localhost`, `127.0.0.1` and `[::1]`. The application refuses an empty secret
+or an empty parsed trusted-host list;
 continue using the team's generated random `SECRET_KEY`, never a public fallback.
 
 | Variable | Development default | Production requirement (PS-21) |
 |---|---|---|
 | `SECRET_KEY` | No fallback | Strong random secret, supplied privately |
-| `SESSION_COOKIE_SECURE` | `0` / HTTP development | Set `1`, serve exclusively over HTTPS |
+| `SESSION_COOKIE_SECURE` | `0` / HTTP development | Set `1` (also accepts true/yes/on), serve exclusively over HTTPS |
 | `TRUSTED_HOSTS` | Local hostnames/IPs | Set the real public hostname(s), comma-separated |
 | `RATELIMIT_STORAGE_URI` | `memory://` | Configure a supported shared counter store |
 
 Memory counters are development-only: they reset on restart and are not shared
-between production workers. PS-21 must choose/provision a shared backend and add
+between production workers. Outside debug and tests, the app warns when memory
+storage is configured. PS-21 must choose/provision a shared backend and add
 its driver dependency (for example Redis), configure HTTPS termination, trusted
 proxy hops and server timeouts, and run a multi-worker smoke test. This task does
 not provision infrastructure, force HTTPS redirects on local HTTP, or change the
@@ -169,20 +177,30 @@ temporary test directory; never point it at project data.
 
 - **Build/imports:** passed through the real app factory and tests on Windows Python
   3.13 and Ubuntu Python 3.14. No separate static type checker is configured.
-- **Full Windows suite:** 480 passed, 1 platform skip and 1 pre-existing expected
-  failure (the missing PS-13 registration template), from 482 collected cases.
+- **Initial full Windows suite:** 480 passed, 1 platform skip and 1 pre-existing
+  expected failure (the missing PS-13 registration template), from 482 collected
+  cases. See the PR's latest CI run for the review correction results.
 - **Ubuntu API/security subset:** 194 passed, including the actual DST conversion.
 - **Coverage:** 98% combined statement/branch coverage for `app`; authentication
   and the calendar API are 100%, and the shared security module is 99%.
 - **Style/dependencies:** black, ruff, JavaScript syntax and `pip check` passed.
 - **Python 3.11 dependency resolution:** a binary-only pip dry run of
   `requirements-dev.txt` succeeded. `Deprecated` is pinned to 1.3.1 because 3.x
-  requires Python 3.12. The actual GitHub CI job is not run until the branch is pushed.
+  requires Python 3.12. GitHub CI passed on the initial PS-10 commit; rerun it
+  for the review corrections before merging.
 - **Database:** migration upgrade/check passed on temporary SQLite; no models,
   migrations, seed data, real database contents or local `.env` values changed.
 - **Scope:** no browser-rendered visual QA, production deployment, multi-worker
   load test or compliance certification is claimed. Production acceptance is not
   applicable to this local task; see the PS-19/PS-21 handoff above.
+
+### Review correction verification (2026-11-12)
+
+- Windows full suite: 502 passed, 1 platform skip and the same pre-existing xfail;
+  149 security cases passed, including HTTPS CSRF and empty trusted-host checks.
+- Black, Ruff, pip dependency check and `git diff --check` passed.
+- The initial PR's Python 3.11 CI passed. The review correction needs a fresh CI
+  result after the updated branch is pushed.
 
 References: [Flask security guidance](https://flask.palletsprojects.com/en/stable/web-security/),
 [Flask-WTF CSRF](https://flask-wtf.readthedocs.io/en/1.2.x/csrf/),

@@ -174,6 +174,8 @@ def authenticate_user(email, password):
             user.password_hash if user else DUMMY_PASSWORD_HASH, password
         )
     except (ValueError, TypeError):
+        if user is not None:
+            current_app.logger.warning("Unsupported password hash for user %s", user.id)
         return None
     if not password_matches or user is None or user.role not in {"client", "physio"}:
         return None

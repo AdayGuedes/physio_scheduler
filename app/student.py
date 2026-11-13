@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import (
     Blueprint,
     abort,
+    current_app,
     redirect,
     render_template,
     request,
@@ -160,6 +161,9 @@ def create_appointment():
         )
     except (SQLAlchemyError, BookingTransactionError):
         db.session.rollback()
+        current_app.logger.exception(
+            "Unable to save appointment at %s", request.endpoint
+        )
         abort(503, description="Unable to save the appointment. Please try again.")
     return redirect(url_for("student.my_appointments"), code=303)
 
@@ -178,5 +182,8 @@ def cancel_appointment(id):
         abort(409, description=str(error))
     except SQLAlchemyError:
         db.session.rollback()
+        current_app.logger.exception(
+            "Unable to cancel appointment at %s", request.endpoint
+        )
         abort(503, description="Unable to cancel the appointment. Please try again.")
     return redirect(url_for("student.my_appointments"), code=303)

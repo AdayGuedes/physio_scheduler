@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 
 from flask import abort, current_app, g, request
@@ -5,7 +6,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import current_user
 from flask_wtf.csrf import validate_csrf
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 from wtforms.validators import ValidationError
 
@@ -23,6 +24,21 @@ ERROR_CODES = {
     500: "internal_error",
     503: "unavailable",
 }
+
+
+def login_limit_key():
+    address = get_remote_address()
+    if request.mimetype not in {
+        "application/x-www-form-urlencoded",
+        "multipart/form-data",
+    }:
+        return address
+    emails = request.form.getlist("email")
+    if len(emails) != 1 or not 1 <= len(emails[0]) <= 254:
+        return address
+    normalized = emails[0].strip().lower()
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"{address}:{digest}"
 
 
 def check_csrf():
@@ -45,11 +61,20 @@ def check_csrf():
 def init_security(app):
     if not isinstance(app.secret_key, str) or not app.secret_key.strip():
         raise RuntimeError("Configure SECRET_KEY before starting the application.")
+    if not app.config.get("TRUSTED_HOSTS"):
+        raise RuntimeError("Configure at least one TRUSTED_HOSTS entry.")
     limiter = (
         Limiter(get_remote_address, app=app)
         if app.config.get("RATELIMIT_ENABLED", True)
         else None
     )
+    if (
+        limiter is not None
+        and app.config.get("RATELIMIT_STORAGE_URI") == "memory://"
+        and not app.debug
+        and not app.testing
+    ):
+        app.logger.warning("Rate limits use per-process memory storage.")
 
     @app.before_request
     def protect_browser_routes():
@@ -103,8 +128,16 @@ def init_security(app):
             ("auth.login", "RATELIMIT_LOGIN"),
             ("auth.register", "RATELIMIT_REGISTER"),
         ]:
+            options = (
+                {
+                    "key_func": login_limit_key,
+                    "deduct_when": lambda response: response.status_code != 302,
+                }
+                if endpoint == "auth.login"
+                else {}
+            )
             app.view_functions[endpoint] = limiter.limit(
-                app.config[limit], methods=["POST"], override_defaults=False
+                app.config[limit], methods=["POST"], override_defaults=False, **options
             )(app.view_functions[endpoint])
 
     @app.context_processor
@@ -123,7 +156,7 @@ def init_security(app):
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Referrer-Policy"] = "same-origin"
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=()"
         )
@@ -141,7 +174,11 @@ def init_security(app):
             response.set_data(
                 app.json.dumps(
                     {
-                        "error": error.description,
+                        "error": (
+                            "Request limit exceeded."
+                            if error.code == 429
+                            else error.description
+                        ),
                         "code": ERROR_CODES.get(error.code, "request_failed"),
                     }
                 )
@@ -160,8 +197,13 @@ def init_security(app):
 
     @app.errorhandler(SQLAlchemyError)
     def safe_database_error(error):
-        db.session.rollback()
-        app.logger.warning("Database operation is temporarily unavailable.")
+        try:
+            db.session.rollback()
+        except SQLAlchemyError:
+            app.logger.exception("Database rollback failed at %s", request.endpoint)
+        app.logger.exception("Database error at %s", request.endpoint)
+        if not isinstance(error, OperationalError):
+            return safe_server_error(error)
         if request.path.startswith("/api/"):
             return {
                 "error": "Data is temporarily unavailable.",

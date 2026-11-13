@@ -148,7 +148,7 @@ Application errors use a safe message and stable code:
 | 422 | `too_many_events` | More than 1,000 events; reduce the range |
 | 429 | `rate_limited` | Request limit exceeded; wait for `Retry-After` before retrying |
 | 500 | `internal_error` | Unexpected failure; normal Flask server-error logging remains active |
-| 503 | `unavailable` | Database failure, including a failed session-user lookup |
+| 503 | `unavailable` | Database connectivity failure, including session-user lookup |
 
 Database errors roll back the failed read transaction and return no SQL details.
 Unexpected programming exceptions are not disguised as 400. Flask's standard
