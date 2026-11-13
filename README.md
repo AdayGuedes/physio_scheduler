@@ -39,6 +39,9 @@ pip install -r requirements-dev.txt
 | `SECRET_KEY` | The generated value |
 | `DATABASE_URL` | Leave as in `.env.example` for local development |
 | `ENABLE_DEV_SEED` | Leave empty unless you need the development users (see [Seed data](#seed-data)) |
+| `SESSION_COOKIE_SECURE` | Leave `0` for local development; set `1` when serving over HTTPS |
+| `TRUSTED_HOSTS` | Leave as in `.env.example` for local development; set the real hostname(s) in production |
+| `RATELIMIT_STORAGE_URI` | Leave `memory://` for local development; use a shared store in production |
 
 Never commit `.env`.
 
