@@ -105,3 +105,8 @@ function cancelAppointment() {
     window.location.href = "/student/appointments";
   }
 }
+
+const cancelAppointmentButton = document.querySelector(".cancel-appointment");
+if (cancelAppointmentButton) {
+  cancelAppointmentButton.addEventListener("click", cancelAppointment);
+}
