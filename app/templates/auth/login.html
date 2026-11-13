@@ -1,33 +1,29 @@
 
 {% extends "base.html" %}
 
-{% block title %}Login{% endblock %}
-
-{% block navbar %}
-{% endblock %}
+{% block title %}Login | Physio Scheduler{% endblock %}
 
 {% block content %}
 
 <div class="login-wrapper">
 
-  <a
-    href="https://www.unionky.edu/"
-    target="_blank"
-    rel="noopener noreferrer"
-    class="login-logo-u"
-  >
+  <div class="login-logo-u">
     <img
       src="{{ url_for('static', filename='images/union-logo-U.png') }}"
-      alt="Union College"
+      alt="Union Commonwealth University logo"
     />
-  </a>
+  </div>
 
   <div class="login-card">
 
-    <h1>Login</h1>
+    <h1>Welcome Back</h1>
+
+    <p class="text-muted text-center mb-4">
+      Sign in to your Physio Scheduler account.
+    </p>
 
     {% if errors %}
-      <div class="login-errors">
+      <div class="login-errors" role="alert">
         {% for error in errors %}
           <p>{{ error }}</p>
         {% endfor %}
@@ -37,25 +33,34 @@
     <form method="POST">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
 
-      <input
-        type="email"
-        name="email"
-        placeholder="email@unionky.edu"
-        required
-      />
+      <div>
+        <label for="email" class="form-label">Email address</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          class="form-control"
+          placeholder="email@unionky.edu"
+          autocomplete="email"
+          required
+        />
+      </div>
 
-      <input
-        type="password"
-        name="password"
-        placeholder="Password"
-        required
-      />
+      <div>
+        <label for="password" class="form-label">Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          class="form-control"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+          required
+        />
+      </div>
 
-      <button
-        type="submit"
-        class="btn-primary-custom"
-      >
-        Continue
+      <button type="submit" class="btn btn-primary w-100">
+        Sign In
       </button>
 
     </form>
@@ -65,4 +70,3 @@
 </div>
 
 {% endblock %}
-

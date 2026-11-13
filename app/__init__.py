@@ -1,4 +1,5 @@
-from flask import Flask
+from flask import Flask, redirect, url_for
+from flask_login import current_user
 
 from app import models  # noqa: F401  (registers models in db.metadata)
 from app.api import api
@@ -24,8 +25,18 @@ def create_app():
     app.register_blueprint(student)
     app.register_blueprint(physio)
     app.register_blueprint(api)
+
     app.cli.add_command(seed_inventory_command)
     app.cli.add_command(seed_dev_users_command)
     init_security(app)
+
+    @app.route("/")
+    def index():
+        if current_user.is_authenticated:
+            if current_user.role == "physio":
+                return redirect(url_for("physio.dashboard"))
+            if current_user.role == "client":
+                return redirect(url_for("student.my_appointments"))
+        return redirect(url_for("auth.login"))
 
     return app

@@ -1,357 +1,487 @@
 
-* {
-    box-sizing: border-box;
+/* =========================================
+   PHYSIO SCHEDULER - SHARED STYLES
+   ========================================= */
+
+/* ---------- Theme variables ---------- */
+
+:root {
+  --union-orange: #f16321;
+  --union-orange-hover: #d95117;
+  --text-color: #252525;
+  --muted-color: #6c757d;
+  --background-color: #f5f6f8;
+  --white: #ffffff;
+  --border-color: #e2e2e2;
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
 }
 
+/* ---------- General layout ---------- */
 
-/* ---------------- LOGIN ---------------- */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.main-content {
+  flex: 1;
+  width: 100%;
+  padding-top: 36px;
+  padding-bottom: 45px;
+}
+
+/* ---------- Navigation ---------- */
+
+.app-navbar {
+  background-color: var(--white);
+  border-bottom: 3px solid var(--union-orange);
+  padding: 12px 0;
+}
+
+.app-navbar .navbar-brand {
+  margin-right: 12px;
+}
+
+.app-navbar .union-logo {
+  display: block;
+  width: auto;
+  max-height: 48px;
+  object-fit: contain;
+}
+
+.app-name {
+  color: var(--text-color);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+a.app-name:hover,
+a.app-name:focus-visible {
+  color: var(--text-color);
+}
+
+.app-navbar .nav-link {
+  color: var(--text-color);
+  font-weight: 500;
+  padding: 10px 14px;
+  transition: color 0.2s ease;
+}
+
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link:focus {
+  color: #c2410c;
+}
+
+.app-navbar .logout-link {
+  color: #c2410c;
+}
+
+/* ---------- Main buttons ---------- */
+
+.btn-primary {
+  background-color: #c2410c;
+  border-color: #c2410c;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: #9a3412;
+  border-color: #9a3412;
+}
+
+.login-card .btn-primary {
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.btn-primary:focus-visible {
+  outline: 3px solid rgba(194, 65, 12, 0.3);
+  outline-offset: 3px;
+}
+
+/* ---------- Forms ---------- */
+
+.form-control,
+.form-select {
+  min-height: 44px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--union-orange);
+  box-shadow: 0 0 0 0.2rem rgba(241, 99, 33, 0.15);
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+/* ---------- Alerts ---------- */
+
+.alert {
+  border-radius: 8px;
+}
+
+/* ---------- Footer ---------- */
+
+.app-footer {
+  width: 100%;
+  padding: 18px 0;
+  background-color: var(--white);
+  border-top: 1px solid var(--border-color);
+  color: var(--muted-color);
+  font-size: 0.9rem;
+}
+
+/* =========================================
+   LOGIN PAGE
+   ========================================= */
 
 .login-wrapper {
-    background-color: #f5f5f5;
-    min-height: 100vh;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 30px 20px;
-    position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 20px auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .login-logo-u {
-    position: absolute;
-    top: 20px;
-    left: 20px;
+  display: block;
+  width: 100%;
+  max-width: 190px;
+  margin: 0 auto 20px;
+  text-align: center;
 }
 
 .login-logo-u img {
-    width: 40px;
-    height: 40px;
-    display: block;
+  display: block;
+  width: 100%;
+  max-height: 190px;
+  object-fit: contain;
 }
 
 .login-card {
-    background-color: white;
-    border-radius: 20px;
-    width: 350px;
-    min-height: 320px;
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-}
-
-.login-card form {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  width: 100%;
+  padding: 30px;
+  background-color: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }
 
 .login-card h1 {
-    font-size: 30px;
-    color: #222;
-    margin-bottom: 20px;
+  margin: 0 0 24px;
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .login-card input {
-    width: 100%;
-    padding: 12px;
-    margin-top: 6px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 15px;
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--white);
+  font-size: 1rem;
 }
 
 .login-card input:focus {
-    outline: none;
-    border-color: #f16321;
-    box-shadow: 0 0 0 2px rgba(241, 99, 33, 0.15);
+  outline: none;
+  border-color: var(--union-orange);
+  box-shadow: 0 0 0 3px rgba(241, 99, 33, 0.15);
 }
-
-.btn-primary-custom {
-    width: 100%;
-    margin-top: 5px;
-    padding: 11px;
-    background-color: #f16321;
-    color: white;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.btn-primary-custom:hover {
-    background-color: #d95117;
-}
-
-
-/* ---------------- LOGIN ERRORS ---------------- */
 
 .login-errors {
-    width: 100%;
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: #ffe5e5;
-    border: 1px solid #ffb3b3;
-    border-radius: 8px;
+  margin-bottom: 18px;
+  padding: 12px 15px;
+  border: 1px solid #f5c2c7;
+  border-radius: 6px;
+  background-color: #f8d7da;
+  color: #842029;
 }
 
 .login-errors p {
-    margin: 0;
-    color: #c00000;
-    font-size: 14px;
-    text-align: center;
+  margin: 0;
 }
 
-
-/* ---------------- NAVBAR ---------------- */
-
-.union-logo {
-    width: 40px;
-    height: 40px;
-    display: block;
+.login-errors p + p {
+  margin-top: 6px;
 }
 
+/* =========================================
+   STUDENT APPOINTMENT PAGES
+   ========================================= */
 
-/* ---------------- APPOINTMENT PAGE ---------------- */
-
-.appointment-page {
-    min-height: 100vh;
-    padding: 30px 20px;
+.appointment-page,
+.appointments-page {
+  width: 100%;
 }
 
-.appointment-container {
-    background-color: white;
-    max-width: 700px;
-    margin: 0 auto;
-    padding: 40px;
-    border-radius: 15px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+.appointment-container,
+.appointments-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 30px;
+  background-color: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }
 
-.appointment-container h1 {
-    text-align: center;
-    color: #f16321;
-    margin-bottom: 10px;
+.appointment-container h1,
+.appointments-container h1 {
+  margin-bottom: 12px;
+  font-size: 2rem;
+  font-weight: 700;
 }
 
 .page-description {
-    text-align: center;
-    color: #666;
-    margin-bottom: 35px;
+  margin-bottom: 28px;
+  color: var(--muted-color);
 }
 
 .form-section {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #ddd;
+  margin-bottom: 28px;
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
 }
 
 .form-section h2 {
-    font-size: 22px;
-    margin-bottom: 20px;
-    color: #333;
+  margin-bottom: 20px;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
 .form-section label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 5px;
+  display: block;
+  margin: 14px 0 7px;
+  font-weight: 600;
 }
 
 .form-section input,
 .form-section select,
 .form-section textarea {
-    width: 100%;
-    padding: 12px;
-    margin-top: 6px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 15px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font: inherit;
 }
 
 .form-section input:focus,
 .form-section select:focus,
 .form-section textarea:focus {
-    outline: none;
-    border-color: #f16321;
-    box-shadow: 0 0 0 2px rgba(241, 99, 33, 0.15);
+  outline: none;
+  border-color: var(--union-orange);
+  box-shadow: 0 0 0 3px rgba(241, 99, 33, 0.15);
 }
-
-.form-section textarea {
-    resize: vertical;
-}
-
-
-/* ---------------- APPOINTMENT BUTTONS ---------------- */
 
 .appointment-buttons {
-    display: flex;
-    justify-content: space-between;
-    gap: 15px;
-    margin-top: 25px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
 }
 
 .submit-button,
-.cancel-button {
-    padding: 12px 25px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
+.cancel-button,
+.cancel-appointment {
+  display: inline-block;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .submit-button {
-    background-color: #f16321;
-    color: white;
-    flex: 1;
+  background-color: #c2410c;
+  color: var(--white);
 }
 
 .submit-button:hover {
-    background-color: #d95117;
+  background-color: #9a3412;
 }
 
 .cancel-button {
-    display: inline-block;
-    text-align: center;
-    text-decoration: none;
-    background-color: #ddd;
-    color: #333;
+  background-color: #e5e7eb;
+  color: var(--text-color);
 }
 
 .cancel-button:hover {
-    background-color: #bbb;
-    color: #333;
+  background-color: #d1d5db;
 }
-
-
-/* ---------------- SUCCESS MESSAGE ---------------- */
 
 #success-message {
-    text-align: center;
-    margin-top: 20px;
-    font-weight: bold;
-}
-
-#success-message.success {
-    color: green;
-}
-
-
-/* ---------------- MY APPOINTMENTS ---------------- */
-
-.appointments-page {
-    min-height: 100vh;
-    padding: 30px 20px;
-}
-
-.appointments-container {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.appointments-container h1 {
-    text-align: center;
-    color: #f16321;
-    margin-bottom: 10px;
+  margin-top: 18px;
+  color: #166534;
 }
 
 .appointment-card {
-    background-color: white;
-    padding: 25px;
-    border-radius: 12px;
-    margin-top: 25px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+  margin-top: 24px;
+  padding: 24px;
+  background-color: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
 }
 
 .appointment-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .appointment-header h2 {
-    font-size: 20px;
-}
-
-.status {
-    background-color: #dff5e1;
-    color: #217a2b;
-    padding: 6px 12px;
-    border-radius: 15px;
-    font-size: 13px;
-    font-weight: bold;
+  margin: 0;
+  font-size: 1.3rem;
 }
 
 .appointment-info p {
-    margin: 10px 0;
+  margin-bottom: 12px;
+}
+
+.status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background-color: #dcfce7;
+  color: #166534;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .cancel-appointment {
-    margin-top: 15px;
-    padding: 10px 20px;
-    background-color: #ddd;
-    color: #333;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
+  margin-top: 12px;
+  background-color: #dc2626;
+  color: var(--white);
 }
 
 .cancel-appointment:hover {
-    background-color: #bbb;
+  background-color: #b91c1c;
 }
 
 .no-appointments {
-    text-align: center;
-    margin-top: 30px;
+  margin-top: 24px;
+  padding: 28px;
+  text-align: center;
+  background-color: var(--white);
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
 }
 
 .no-appointments a {
-    display: inline-block;
-    margin-top: 15px;
-    background-color: #f16321;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 8px;
-    text-decoration: none;
+  color: #c2410c;
+  font-weight: 600;
 }
 
-.no-appointments a:hover {
-    background-color: #d95117;
+/* ---------- Responsive design ---------- */
+
+@media (max-width: 991px) {
+  .app-navbar .navbar-collapse {
+    padding-top: 12px;
+  }
+
+  .app-navbar .nav-link {
+    padding: 8px 0;
+  }
+
+  .app-name {
+    font-size: 1rem;
+  }
 }
-
-
-/* ---------------- RESPONSIVE ---------------- */
 
 @media (max-width: 600px) {
-    .login-card {
-        width: 100%;
-        max-width: 350px;
-    }
+  .main-content {
+    padding-top: 20px;
+    padding-bottom: 25px;
+  }
 
-    .appointment-container {
-        padding: 25px 20px;
-    }
+  .app-navbar .union-logo {
+    max-height: 38px;
+  }
 
-    .appointment-buttons {
-        flex-direction: column;
-    }
+  .app-name {
+    font-size: 0.9rem;
+  }
 
-    .submit-button,
-    .cancel-button {
-        width: 100%;
-    }
+  .login-wrapper {
+    margin: 10px auto;
+    padding: 10px;
+  }
 
-    .appointment-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
+  .login-logo-u {
+    max-width: 130px;
+    margin-bottom: 15px;
+  }
+
+  .login-logo-u img {
+    max-height: 130px;
+  }
+
+  .login-card {
+    padding: 22px;
+  }
+
+  .login-card h1 {
+    font-size: 1.7rem;
+  }
+
+  .appointment-container,
+  .appointments-container {
+    padding: 20px;
+  }
+
+  .form-section {
+    padding: 15px;
+  }
+
+  .appointment-buttons {
+    flex-direction: column;
+  }
+
+  .submit-button,
+  .cancel-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .appointment-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

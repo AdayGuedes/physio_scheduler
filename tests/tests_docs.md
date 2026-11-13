@@ -1,9 +1,9 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 504 collected cases (including
+it would fail. On Python 3.13 the suite has 507 collected cases (including
 parametrized cases). One is an expected failure (`xfail`); the DST-fold case
-requires POSIX `time.tzset()` and skips on Windows, where 503 cases pass.
+requires POSIX `time.tzset()` and skips on Windows, where 506 cases pass.
 Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -17,7 +17,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_api.py` | 67 | FullCalendar contract, query validation, ownership, timezone bounds, safe errors and login integration |
 | `test_auth.py` | 13 | Registration, login, logout, redirects |
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
-| `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
+| `test_blueprints.py` | 6 | App factory: blueprints, URL prefixes, models and the `/` redirect by role |
 | `test_config.py` | 4 | `ENABLE_DEV_SEED` flag parsing in `config.py` |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
@@ -344,6 +344,15 @@ These tests use `create_app()` and do not need the `app` fixture.
 - **Why it can fail:** a model was added or removed without updating the test, or
   `models.py` is no longer imported by the app (so its tables are not registered and
   migrations would miss them).
+
+#### `test_index_redirects_to_the_home_page_of_each_role`
+- **Parametrized:** anonymous visitor, `client` and `physio`: three collected cases.
+- **Setup:** the real factory with an in-memory SQLite database and a test `SECRET_KEY`.
+  The logged-in cases store the user id in the session instead of posting the login form.
+- **Expected:** `GET /` returns 302 to `/auth/login` for a visitor, to
+  `/student/appointments` for a client and to `/physio/dashboard` for a physio.
+- **Why it can fail:** the `index` view in `create_app()` stopped checking the role, a
+  role was mapped to the wrong endpoint, or the home page of a role was renamed.
 
 ---
 
