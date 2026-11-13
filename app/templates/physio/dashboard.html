@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Physio agenda{% endblock %}
 {% block content %}
-<main class="container py-4">
+<div class="py-4">
   <h1>Your agenda</h1>
   <nav aria-label="Physio navigation" class="mb-3">
     <a href="{{ url_for('physio.inventory') }}">Inventory</a> ·
@@ -32,5 +32,5 @@
       </tbody>
     </table>
   </div>
-</main>
+</div>
 {% endblock %}

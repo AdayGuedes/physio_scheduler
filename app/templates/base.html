@@ -98,12 +98,8 @@
     </nav>
 
     <!-- Main content -->
-    {% if request.blueprint == 'physio' %}
-      <div class="main-content">
-    {% else %}
-      <main class="main-content">
-        <div class="container">
-    {% endif %}
+    <main class="main-content">
+      <div class="{% block container_class %}container{% endblock %}">
 
         <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -128,12 +124,8 @@
 
         {% block content %}{% endblock %}
 
-    {% if request.blueprint == 'physio' %}
       </div>
-    {% else %}
-        </div>
-      </main>
-    {% endif %}
+    </main>
 
     <footer class="app-footer">
       <div class="container text-center">
