@@ -1,9 +1,9 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 355 collected cases (including
+it would fail. On Python 3.13 the suite has 507 collected cases (including
 parametrized cases). One is an expected failure (`xfail`); the DST-fold case
-requires POSIX `time.tzset()` and skips on Windows, where 353 cases pass.
+requires POSIX `time.tzset()` and skips on Windows, where 506 cases pass.
 Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -17,20 +17,22 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_api.py` | 67 | FullCalendar contract, query validation, ownership, timezone bounds, safe errors and login integration |
 | `test_auth.py` | 13 | Registration, login, logout, redirects |
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
-| `test_blueprints.py` | 3 | App factory: blueprints, URL prefixes, models |
+| `test_blueprints.py` | 6 | App factory: blueprints, URL prefixes, models and the `/` redirect by role |
 | `test_config.py` | 4 | `ENABLE_DEV_SEED` flag parsing in `config.py` |
 | `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 19 | Inventory and dev-users seed functions, `flask seed-inventory` and `flask seed-dev-users` commands |
+| `test_security.py` | 150 | Real-factory CSRF, roles, sessions, account validation, limits, headers and safe errors |
 | `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
 ## Shared fixture: `conftest.py`
 
 `app` builds an isolated Flask app with an in-memory SQLite database
-(`SQLALCHEMY_DATABASE_URI="sqlite:///:memory:"`), creates all tables, and drops them
-after the test. Every test that receives `app` starts with empty tables and does not
-touch `instance/app.db`.
+(`SQLALCHEMY_DATABASE_URI="sqlite:///:memory:"`), initializes Flask-WTF CSRF
+protection, creates all tables, and drops them after the test. Focused fixtures
+disable CSRF only when testing another behavior. Every test that receives `app`
+starts with empty tables and does not touch `instance/app.db`.
 
 Tests that call `create_app()` directly (`test_blueprints.py` and the two
 `test_real_app_*` tests) use the real app factory and the real configuration instead.
@@ -50,6 +52,8 @@ loader with two tiny in-memory templates (`auth/register.html`, `auth/login.html
 only print the form errors, and registers the `auth` and `student` blueprints so
 the login redirect can use `url_for("student.my_appointments")`. This keeps the tests
 independent from the real HTML templates.
+CSRF is explicitly disabled only in this focused unit fixture; `test_security.py`
+and the real physio/API workflow tests use the actual CSRF-protected forms.
 
 ### Functions (`register_user`, `authenticate_user`)
 
@@ -89,7 +93,7 @@ independent from the real HTML templates.
   changed, or the route does not accept the form fields `email` / `password`.
 
 #### `test_logout_route_clears_session`
-- **Action:** log in, then GET `/auth/logout`.
+- **Action:** log in, then POST `/auth/logout` in the isolated unit fixture.
 - **Expected:** redirect (302) to `/auth/login`, and `_user_id` is no longer in the session.
 - **Why it can fail:** the route does not call `logout_user`, or it redirects somewhere else.
 
@@ -340,6 +344,15 @@ These tests use `create_app()` and do not need the `app` fixture.
 - **Why it can fail:** a model was added or removed without updating the test, or
   `models.py` is no longer imported by the app (so its tables are not registered and
   migrations would miss them).
+
+#### `test_index_redirects_to_the_home_page_of_each_role`
+- **Parametrized:** anonymous visitor, `client` and `physio`: three collected cases.
+- **Setup:** the real factory with an in-memory SQLite database and a test `SECRET_KEY`.
+  The logged-in cases store the user id in the session instead of posting the login form.
+- **Expected:** `GET /` returns 302 to `/auth/login` for a visitor, to
+  `/student/appointments` for a client and to `/physio/dashboard` for a physio.
+- **Why it can fail:** the `index` view in `create_app()` stopped checking the role, a
+  role was mapped to the wrong endpoint, or the home page of a role was renamed.
 
 ---
 
@@ -1245,6 +1258,369 @@ platforms such as Windows without `time.tzset()`; Ubuntu CI runs the real conver
 - **Action:** force the session-user lookup to raise a database exception.
 - **Expected:** generic JSON 503 rather than an HTML error before the feed query.
 - **Why it can fail:** only the final appointment query is inside database-error handling.
+
+---
+
+## `test_security.py`
+
+`security_factory` builds the real app with explicit test configuration, an
+isolated in-memory SQLite database and active CSRF. A fallback registration
+template exists only in the test loader while PS-13 is pending. Rate limits are
+disabled by default only in this fixture; limit tests enable independent memory
+counters. `people` creates two clients, two physios, equipment and one owned
+appointment. `_token` reads a real signed form token; `_as_user` supplies a
+signed test session without bypassing the real request permission checks.
+
+### Authentication, forms and sessions
+
+#### `test_auth_posts_require_csrf` (4 cases)
+- **Action:** submit login/registration with missing or invalid CSRF tokens.
+- **Expected:** 400 before authentication or registration.
+- **Why it can fail:** auth routes are exempted or protection is not initialized.
+
+#### `test_login_rejects_csrf_from_another_browser`
+- **Action:** submit one browser's token from a second browser session.
+- **Expected:** 400 and no authenticated session.
+- **Why it can fail:** tokens are not bound to the submitting session.
+
+#### `test_login_clears_old_session_and_ignores_external_redirect`
+- **Action:** log in with stale session data and an external `next` URL.
+- **Expected:** the correct account/dashboard, no stale data or previous CSRF state.
+- **Why it can fail:** login retains old private state or trusts an unvalidated redirect.
+
+#### `test_logout_get_only_confirms_and_post_requires_csrf`
+- **Action:** visit logout, submit without a token, then confirm with a valid token.
+- **Expected:** GET preserves login; invalid POST returns 400; valid POST clears the session.
+- **Why it can fail:** logout mutates through GET or does not require CSRF.
+
+#### `test_auth_rejects_duplicate_fields` (4 cases)
+- **Action:** repeat an email, password, name or CSRF field.
+- **Expected:** 400 even if both values are identical.
+- **Why it can fail:** the request silently chooses one of conflicting values.
+
+#### `test_registration_service_validates_before_saving` (14 cases)
+- **Action:** call registration directly with malformed, missing, oversized or unsafe fields.
+- **Expected:** `ValueError` and no stored user.
+- **Why it can fail:** validation exists only in HTML or route code.
+
+#### `test_registration_cannot_choose_privileged_role`
+- **Action:** submit a valid registration with `role=physio`.
+- **Expected:** a new account with the `client` role only.
+- **Why it can fail:** client input is used to assign privileges.
+
+#### `test_invalid_session_ids_are_anonymous` (9 cases)
+- **Action:** load missing, malformed, negative, huge or non-string user IDs.
+- **Expected:** no user, without conversion/database exceptions.
+- **Why it can fail:** the loader calls `int()` or the database on unchecked input.
+
+#### `test_unknown_email_still_checks_a_password_hash`
+- **Action:** authenticate an unknown valid-format email and record hash comparisons.
+- **Expected:** one comparison against a real dummy hash, then no user.
+- **Why it can fail:** unknown users take an obvious hash-free shortcut.
+
+#### `test_registration_reports_missing_fields` (3 cases)
+- **Action:** omit name, email or password with otherwise valid CSRF.
+- **Expected:** required-field feedback and no inserted account.
+- **Why it can fail:** required fields are accepted or registration runs despite errors.
+
+#### `test_registration_reports_invalid_fields` (4 cases)
+- **Action:** submit malformed email, short password, oversized name or NUL input.
+- **Expected:** 400 instead of creating an invalid account.
+- **Why it can fail:** route handling bypasses service validation or unsafe-text checks.
+
+#### `test_login_reports_missing_or_oversized_fields` (4 cases)
+- **Action:** submit missing credentials or over-limit email/password fields.
+- **Expected:** required-field feedback or 400 for excessive lengths.
+- **Why it can fail:** missing values reach the hash checker or input is silently truncated.
+
+#### `test_authentication_rejects_invalid_service_inputs` (4 cases)
+- **Action:** call authentication with invalid email/password types or lengths.
+- **Expected:** no user and no server exception.
+- **Why it can fail:** direct callers bypass route-only input checks.
+
+#### `test_session_id_above_database_maximum_is_anonymous`
+- **Action:** load a numeric ID larger than the signed 64-bit database range.
+- **Expected:** no user without a database lookup overflow.
+- **Why it can fail:** only string length, not numeric range, is checked.
+
+#### `test_malformed_password_hash_is_not_a_server_error`
+- **Action:** simulate a hash-checking failure for an existing account.
+- **Expected:** failed authentication rather than a server error.
+- **Why it can fail:** an unsupported stored hash propagates a parsing exception.
+
+#### `test_registration_handles_duplicate_insert_race`
+- **Action:** simulate a stale email pre-check, then let the real unique constraint reject insertion.
+- **Expected:** rollback, duplicate result `None`, and unchanged account count.
+- **Why it can fail:** concurrent duplicates become server errors or leave the session failed.
+
+#### `test_unrelated_insert_integrity_errors_are_not_hidden`
+- **Action:** raise an insert integrity error without any existing account for the email.
+- **Expected:** rollback and re-raise, not a false duplicate result.
+- **Why it can fail:** all integrity errors are incorrectly swallowed as duplicate emails.
+
+#### `test_expired_csrf_is_rejected`
+- **Action:** issue a token two hours in the past, keeping the signed session valid.
+- **Expected:** 400 after the normal CSRF lifetime expires.
+- **Why it can fail:** expiry is disabled or the token age is ignored.
+
+#### `test_csrf_header_is_supported`
+- **Action:** submit a form with its valid token in `X-CSRFToken`.
+- **Expected:** normal processing rather than a CSRF error.
+- **Why it can fail:** only hidden HTML fields are accepted.
+
+#### `test_post_login_rotates_csrf_token`
+- **Action:** log in, then attempt logout with the old and new tokens.
+- **Expected:** new token differs; old token fails and the new one succeeds.
+- **Why it can fail:** authentication preserves pre-login CSRF state.
+
+#### `test_logout_clears_legacy_remember_cookie`
+- **Action:** log out with an existing signed remember cookie and valid CSRF.
+- **Expected:** the cookie is deleted and a later private request requires login.
+- **Why it can fail:** clearing the session erases the library's pending cookie-deletion marker.
+
+#### `test_login_retires_previous_account_remember_cookie`
+- **Action:** log in as a client while carrying another account's signed remember cookie.
+- **Expected:** the new account is active and the stale cookie is removed.
+- **Why it can fail:** the old account can be restored after the new session expires.
+
+### Permissions and appointment input
+
+#### `test_every_private_route_requires_login_before_csrf` (10 cases)
+- **Action:** request every student/physio GET and mutation route anonymously.
+- **Expected:** login redirect before form parsing or CSRF validation.
+- **Why it can fail:** a private route is missing the shared boundary.
+
+#### `test_every_private_route_rejects_wrong_role_before_csrf` (10 cases)
+- **Action:** use every private route as the opposite role without a token.
+- **Expected:** 403 before mutation or CSRF handling.
+- **Why it can fail:** routes check only login instead of the required role.
+
+#### `test_other_physio_cannot_read_or_write_appointment` (3 cases)
+- **Action:** read, edit or annotate an appointment belonging to another physio.
+- **Expected:** 404, unchanged reason/notes and no disclosed clinical notes.
+- **Why it can fail:** ownership is enforced only in navigation or read routes.
+
+#### `test_booking_rejects_duplicate_core_fields` (5 cases)
+- **Action:** repeat a core booking field or its CSRF token in a real request.
+- **Expected:** 400 before a booking is created.
+- **Why it can fail:** duplicate values are collapsed silently.
+
+#### `test_new_private_routes_cannot_forget_login_protection`
+- **Action:** add a test-only student route without a login decorator.
+- **Expected:** anonymous redirect, wrong-role 403 and correct-role access.
+- **Why it can fail:** authorization is left entirely to individual route authors.
+
+#### `test_booking_ids_cannot_overflow_database` (2 cases)
+- **Action:** submit extremely large physio/equipment IDs.
+- **Expected:** safe 400 instead of a database conversion error.
+- **Why it can fail:** input is converted to an unbounded Python integer and sent to SQL.
+
+#### `test_cancellation_id_cannot_overflow_database`
+- **Action:** cancel using an oversized numeric URL ID with valid CSRF.
+- **Expected:** 404 without querying an impossible database ID.
+- **Why it can fail:** the URL converter's integer is assumed to fit the database.
+
+#### `test_session_role_cannot_grant_privileges` (2 cases)
+- **Action:** add `role=physio` to a real client session and request physio/API pages.
+- **Expected:** 403 based on the database role.
+- **Why it can fail:** authorization trusts a session role instead of the account record.
+
+#### `test_standalone_booking_parser_rejects_duplicates` (4 cases)
+- **Action:** invoke booking parsing with duplicate core fields outside global hooks.
+- **Expected:** `BookingInputError` for each field.
+- **Why it can fail:** standalone blueprint protection depends only on factory middleware.
+
+#### `test_agenda_rejects_duplicate_query_fields` (2 cases)
+- **Action:** repeat `date` or `view` in an authenticated agenda request.
+- **Expected:** 400 instead of choosing one ambiguous value.
+- **Why it can fail:** agenda parsing silently collapses repeated query keys.
+
+### Request limits, errors and browser protections
+
+#### `test_auth_database_errors_are_safe` (2 cases)
+- **Action:** raise a database error during login or registration.
+- **Expected:** generic 500 without private SQL details.
+- **Why it can fail:** a failed database operation escapes to a debug/error page.
+
+#### `test_oversized_posts_are_rejected`
+- **Action:** submit a body exceeding 256 KiB.
+- **Expected:** 413 without processing credentials.
+- **Why it can fail:** body limits are missing or never applied to form parsing.
+
+#### `test_file_uploads_are_not_supported`
+- **Action:** attach a file to a browser authentication form.
+- **Expected:** 400; no upload handling or persistence.
+- **Why it can fail:** unsupported attachments are silently accepted.
+
+#### `test_security_headers_and_private_cache_policy` (3 cases)
+- **Action:** request login, API access and an unknown URL.
+- **Expected:** CSP, nosniff, frame denial, same-origin referrers and private no-store headers.
+- **Why it can fail:** headers are applied only to successful/private view responses.
+
+#### `test_public_route_varies_by_cookie_without_touching_session`
+- **Action:** request a public route that does not read the session.
+- **Expected:** `Vary: Cookie` from the security hook.
+- **Why it can fail:** session handling masks a missing response header.
+
+#### `test_csp_nonce_matches_template_context`
+- **Action:** render a script nonce through the template context.
+- **Expected:** the rendered nonce appears in the response CSP.
+- **Why it can fail:** header and template nonces are generated independently.
+
+#### `test_cookie_defaults_are_safe_for_local_development`
+- **Action:** load the login page and inspect the signed session cookie.
+- **Expected:** HttpOnly and SameSite=Lax attributes.
+- **Why it can fail:** defaults expose cookies to scripts or cross-site requests.
+
+#### `test_https_sets_hsts_and_can_use_secure_cookies`
+- **Action:** enable secure cookies and compare HTTPS/HTTP responses.
+- **Expected:** Secure cookie on HTTPS; HSTS only for actual HTTPS requests.
+- **Why it can fail:** cookie flags or transport detection are incorrect.
+
+#### `test_https_login_and_logout_accept_same_origin_referrer`
+- **Action:** sign in and out over HTTPS using a same-origin referrer.
+- **Expected:** both CSRF-protected POSTs succeed.
+- **Why it can fail:** the referrer policy breaks Flask-WTF's strict HTTPS check.
+
+#### `test_https_rejects_missing_or_foreign_referrer`
+- **Action:** POST over HTTPS without a referrer or with a foreign one.
+- **Expected:** 400 in both cases.
+- **Why it can fail:** HTTPS CSRF origin validation is disabled.
+
+#### `test_untrusted_hosts_are_rejected`
+- **Action:** send a request with an unexpected host.
+- **Expected:** 400 rather than treating the host as an application origin.
+- **Why it can fail:** trusted hosts are not configured or validation is bypassed.
+
+#### `test_empty_trusted_host_configuration_fails_startup` (3 cases)
+- **Action:** parse separators or whitespace with no real hosts and start the app.
+- **Expected:** startup fails with a clear `TRUSTED_HOSTS` error.
+- **Why it can fail:** an empty host tuple silently allows every Host header.
+
+#### `test_secure_cookie_flag_accepts_common_boolean_values` (6 cases)
+- **Action:** parse common true and false environment values.
+- **Expected:** the intended Secure cookie setting.
+- **Why it can fail:** a truthy spelling silently disables Secure cookies.
+
+#### `test_secure_cookie_flag_rejects_unknown_values`
+- **Action:** parse an unsupported cookie flag.
+- **Expected:** a configuration error, not an insecure fallback.
+- **Why it can fail:** misspelled settings silently turn protection off.
+
+#### `test_factory_security_defaults_are_active`
+- **Action:** inspect production-default request limits and host settings.
+- **Expected:** security limits and host configuration remain active.
+- **Why it can fail:** focused test fixtures hide a changed production default.
+
+#### `test_non_debug_memory_rate_store_warns`
+- **Action:** start an app outside debug/tests with in-memory rate counters.
+- **Expected:** a warning explains that counters are per process.
+- **Why it can fail:** production silently uses development-only counter storage.
+
+#### `test_login_attempts_are_rate_limited`
+- **Action:** lower the login limit to two and submit three failed valid-token attempts.
+- **Expected:** two processed attempts, then 429 with `Retry-After`.
+- **Why it can fail:** auth-specific limits are not bound to POST requests.
+
+#### `test_login_limit_separates_emails_on_shared_ip`
+- **Action:** attempt two accounts from the same IP with a one-attempt limit.
+- **Expected:** both first attempts are processed; retrying one account returns 429.
+- **Why it can fail:** a shared campus IP exhausts one login budget for every user.
+
+#### `test_login_account_limit_combines_attempts_from_different_ips`
+- **Action:** submit failed logins for one normalized email from three different IPs.
+- **Expected:** the third attempt returns 429, while another email remains available.
+- **Why it can fail:** attackers can bypass the account limit by rotating IPs.
+
+#### `test_successful_login_does_not_consume_failure_budget`
+- **Action:** sign in successfully, then submit repeated wrong passwords for that account.
+- **Expected:** the first failure is processed and the second receives 429 under both limits.
+- **Why it can fail:** successful sign-ins consume the IP/email or account budget.
+
+#### `test_calendar_rate_limit_keeps_json_contract`
+- **Action:** exceed a lowered calendar request limit.
+- **Expected:** JSON 429 with a fixed message, `rate_limited` and no-store headers.
+- **Why it can fail:** the limiter returns HTML or loses the API error contract.
+
+#### `test_registration_attempts_are_rate_limited`
+- **Action:** exceed a lowered registration limit with a valid CSRF token.
+- **Expected:** the second POST returns 429.
+- **Why it can fail:** only login limits are actually installed.
+
+#### `test_form_boundary_rejects_nul_and_too_many_fields` (2 cases)
+- **Action:** submit a NUL field or more than 50 fields to login.
+- **Expected:** 400 before authentication is attempted.
+- **Why it can fail:** route-level form validation is bypassed.
+
+#### `test_startup_requires_an_explicit_secret` (3 cases)
+- **Action:** initialize with missing, empty or whitespace-only secrets.
+- **Expected:** clear startup failure naming `SECRET_KEY`, without a fallback secret.
+- **Why it can fail:** an application can silently start without signing protection.
+
+#### `test_proxy_headers_cannot_bypass_login_rate_limit`
+- **Action:** change an untrusted forwarded client-IP header between attempts.
+- **Expected:** the same real-IP limit still returns 429.
+- **Why it can fail:** the application trusts attacker-supplied proxy headers.
+
+#### `test_app_factories_have_independent_rate_counters`
+- **Action:** exhaust one app's counter, then request the same endpoint in a second app.
+- **Expected:** the second app's counter is unaffected.
+- **Why it can fail:** limiter state is accidentally shared between app factories.
+
+#### `test_clinical_notes_are_html_escaped`
+- **Action:** render notes containing a closing textarea tag and script element.
+- **Expected:** escaped text, not an executable script or broken textarea.
+- **Why it can fail:** templates mark user-entered notes as trusted HTML.
+
+#### `test_unexpected_errors_have_generic_responses`
+- **Action:** trigger an unexpected error with exception propagation disabled.
+- **Expected:** generic 500 and no-store, without implementation details.
+- **Why it can fail:** production responses expose debug exceptions.
+
+#### `test_api_routing_errors_are_json`
+- **Action:** POST to the read-only events endpoint.
+- **Expected:** JSON 405 with `method_not_allowed`, preserving the `Allow` header.
+- **Why it can fail:** error conversion loses status, headers or API content type.
+
+#### `test_csrf_protection_rejects_duplicate_tokens`
+- **Action:** submit a real login request with duplicate token fields.
+- **Expected:** 400 before token validation or authentication.
+- **Why it can fail:** the form boundary silently selects one token.
+
+#### `test_standalone_auth_fields_reject_duplicates`
+- **Action:** read an auth field with conflicting values outside global hooks.
+- **Expected:** `BadRequest`.
+- **Why it can fail:** standalone auth routes collapse ambiguous fields.
+
+#### `test_auth_supports_csrf_header`
+- **Action:** submit a header token with automatic CSRF checking enabled.
+- **Expected:** Flask-WTF accepts the token and processes the login attempt.
+- **Why it can fail:** the single CSRF mechanism accepts only form tokens.
+
+#### `test_browser_routes_do_not_accept_json_posts`
+- **Action:** submit JSON to the form-based login route.
+- **Expected:** 400 instead of ambiguous/missing form handling.
+- **Why it can fail:** unsupported content types bypass the form boundary.
+
+#### `test_api_database_errors_before_view_are_safe`
+- **Action:** fail session-user lookup in the central API role check.
+- **Expected:** generic JSON 500, without private SQL.
+- **Why it can fail:** only errors inside the API view are handled safely.
+
+#### `test_api_connection_failure_before_view_is_temporary`
+- **Action:** fail session-user lookup with a database connection error.
+- **Expected:** generic JSON 503, without connection details.
+- **Why it can fail:** temporary and unexpected database failures are conflated.
+
+#### `test_unscoped_api_errors_are_generic_json`
+- **Action:** raise an unexpected error at an API-prefixed test URL outside its blueprint.
+- **Expected:** generic JSON 500, without implementation details.
+- **Why it can fail:** fallback error handling relies only on blueprint handlers.
+
+#### `test_static_assets_keep_their_cache_policy`
+- **Action:** request the real stylesheet.
+- **Expected:** 200 without the private-data no-store policy applied to static assets.
+- **Why it can fail:** response hardening unnecessarily disables asset caching.
 
 ---
 

@@ -13,6 +13,7 @@ from app.student import student
 @pytest.fixture
 def auth_app(app):
     """Add auth routes and lightweight templates to the shared test app."""
+    app.config["WTF_CSRF_ENABLED"] = False
     app.jinja_loader = DictLoader(
         {
             "auth/register.html": "{{ errors | join(', ') }}",
@@ -148,7 +149,7 @@ def test_logout_route_clears_session(auth_app):
     with client.session_transaction() as session:
         assert "_user_id" in session
 
-    response = client.get("/auth/logout")
+    response = client.post("/auth/logout")
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/auth/login")

@@ -102,3 +102,11 @@ The test suite runs against an in-memory SQLite database. See
 - [Student appointments](docs/student_appointments.md)
 - [Calendar API](docs/calendar_api.md) (OpenAPI spec: [calendar_api.openapi.json](docs/calendar_api.openapi.json))
 - [PR review guidelines](docs/pr_review_guidelines.md)
+## Production configuration (PS-21)
+
+The local defaults are only for development. Before a public deployment, set
+`TRUSTED_HOSTS` to the real hostname(s), for example `clinic.example.edu`.
+The app refuses an empty trusted-host list. Serve the app over HTTPS, set
+`SESSION_COOKIE_SECURE=1`, configure trusted proxy hops and a shared
+`RATELIMIT_STORAGE_URI`, and tune limits for campus networks. See
+[backend security](docs/backend_security.md) for the complete handoff.

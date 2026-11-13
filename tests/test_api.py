@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from datetime import datetime, timedelta
 from importlib import import_module
@@ -452,10 +453,20 @@ def test_real_login_feed_detail_and_logout_work_together(monkeypatch):
             appointment_id = _saved([users[0].id, users[1].id])
             client = app.test_client()
             assert client.get("/api/events", query_string=RANGE).status_code == 401
+            login_page = client.get("/auth/login")
+            login_token = (
+                re.search(rb'name="csrf_token" value="([^"]+)"', login_page.data)
+                .group(1)
+                .decode()
+            )
             assert (
                 client.post(
                     "/auth/login",
-                    data={"email": "physio@example.com", "password": "test-password"},
+                    data={
+                        "csrf_token": login_token,
+                        "email": "physio@example.com",
+                        "password": "test-password",
+                    },
                 ).status_code
                 == 302
             )
@@ -464,7 +475,13 @@ def test_real_login_feed_detail_and_logout_work_together(monkeypatch):
                 response.status_code == 200 and response.json[0]["id"] == appointment_id
             )
             assert client.get(response.json[0]["url"]).status_code == 200
-            client.get("/auth/logout")
+            logout_page = client.get("/auth/logout")
+            logout_token = (
+                re.search(rb'name="csrf_token" value="([^"]+)"', logout_page.data)
+                .group(1)
+                .decode()
+            )
+            client.post("/auth/logout", data={"csrf_token": logout_token})
             assert client.get("/api/events", query_string=RANGE).status_code == 401
         finally:
             db.session.remove()
