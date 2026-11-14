@@ -1,9 +1,8 @@
 # T2: Free start times endpoint
 
-Owner: Diego. Depends on: T1, and the clinic opening hours (open question).
+Owner: Diego. Depends on: T1.
 
-**Status: blocked.** The candidate start times need the clinic's opening hours, and they are not defined yet.
-Do not start until they are in `decisions.md`.
+Candidate start times: every 30 minutes from 08:00 to 17:30 (see `decisions.md`, "Clinic hours and start times").
 
 ## Objective
 
@@ -53,6 +52,7 @@ No physio ids or names appear in the response.
 
 ## Notes
 
-- Clinic opening hours are not defined in the repo yet. Until they are, this endpoint has no candidate grid.
+- The candidate grid is fixed: 08:00 to 17:30, every 30 minutes. Define it once as a constant next to
+  `APPOINTMENT_DURATION`, not as literals in the function.
 - The response is read-only. Two students can get the same start time in the list; the POST (T4) is what
   enforces the real booking, so the list is advisory.

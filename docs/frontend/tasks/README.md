@@ -6,10 +6,10 @@ Before implementing a task, read `../decisions.md` and the contracts it lists.
 | ID | Task | Owner | Depends on | Status |
 |---|---|---|---|---|
 | T1 | Fix appointment duration at 30 minutes | Diego | — | Pending |
-| T2 | Free start times endpoint | Diego | T1, clinic opening hours (open) | Blocked |
+| T2 | Free start times endpoint | Diego | T1 | Pending |
 | T3 | Available equipment endpoint | Aday | — | Pending |
 | T4 | Optional physio and physio assignment | Diego | T1 | Pending |
-| T5 | Booking page and booking JavaScript | Aday | T2, T3, T4, reason list (open) | Blocked |
+| T5 | Booking page and booking JavaScript | Aday | T2, T3, T4 | Pending |
 | T6 | Student appointment list and cancel | Aday | — | Pending |
 
 ## Order
@@ -20,5 +20,4 @@ Before implementing a task, read `../decisions.md` and the contracts it lists.
 
 ## Open items
 
-- Clinic opening hours: blocks T2. Without them, the candidate start times have no grid.
-- Fixed list of reasons for the `reason` dropdown: blocks T5.
+None. Clinic hours (08:00 to 18:00) and the reason list are in `../decisions.md`.

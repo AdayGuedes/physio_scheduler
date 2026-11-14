@@ -30,6 +30,26 @@ Applies when `physio_id` is empty ("Any physio"):
 
 When the student chooses a physio, only that physio's free slots are shown.
 
+## Clinic hours and start times
+
+- Opening hours: 08:00 to 18:00.
+- Start times: every 30 minutes from 08:00 to 17:30. The last start is 17:30 so the 30-minute
+  appointment ends at closing time. The start times are the grid used by T2.
+
+## Reasons for appointment
+
+Dropdown options, in this order, as they exist in the current `new_appointment.html`:
+
+1. Injury
+2. Pain or discomfort
+3. Injury recovery
+4. Injury prevention
+5. Physical evaluation
+6. Other
+
+Stored value: the option text, because `Appointment.reason` is a free-text column. The current
+template uses short codes (`injury`, `pain`, and so on); T5 replaces them with the text above.
+
 ## Open questions
 
 None for the booking form at this time.

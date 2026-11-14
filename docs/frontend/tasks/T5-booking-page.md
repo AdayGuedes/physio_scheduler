@@ -1,8 +1,7 @@
 # T5: Booking page and booking JavaScript
 
-Owner: Aday. Depends on: T2, T3, T4, and the reason list (open question).
+Owner: Aday. Depends on: T2, T3, T4.
 
-**Status: blocked.** The `reason` dropdown needs the fixed list of reasons, and it is not defined yet.
 Templates and `static/` are Vitor's area in `CLAUDE.md`. Agree the handover with Vitor before starting.
 
 ## Objective
@@ -50,5 +49,6 @@ Contracts: `contracts/student_new_appointment.md`. Template variables: `physios`
 
 - `main.js` is shared with T6. Both tasks remove different blocks. Merge them in either order, but resolve the
   conflict on the file, not by rewriting the other block.
-- The reason list must be a closed list. The backend still accepts any text up to 500 characters, so the list
-  is enforced only by the form.
+- The reason options are the six in `decisions.md`, "Reasons for appointment". The stored value is the option
+  text, so the existing short codes (`injury`, `pain`, and so on) are removed from the template.
+- The backend still accepts any text up to 500 characters, so the list is enforced only by the form.
