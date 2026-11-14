@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - [PS-25] Improve Claude PR review prompt with inline comments and allowed tools
 - [NO-REF] Update README setup, database and test instructions
+- [NO-REF] Replace the Avocoding plugin block in CLAUDE.md with project rules and disable it here
 
 ### Security
 
