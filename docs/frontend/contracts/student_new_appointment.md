@@ -14,20 +14,23 @@ Decisions: see `docs/frontend/decisions.md`.
 | `form_data` | dict of submitted values | Re-fill fields after a validation error |
 | `errors` | list of str | Error banner |
 | `csrf_token` | str | Hidden field `csrf_token` |
-| `reason_max_length` | int | `maxlength` on the notes field |
 
 ## Form fields
 
 | Field name | Input | Required | Rule |
 |---|---|---|---|
 | `reason` | `<select>` | yes | One of the fixed clinic reasons |
-| `physio_id` | `<select>` | no | Empty means any physio |
+| `physio_id` | `<select>` | no | Empty means "Any physio" (default option) |
 | `start_time` | `<select>`, filled from free times | yes | A 30-minute slot that is still free |
 | `resource_<id>` | number input per resource | no | Shown only if available at `start_time`; empty or 0 means not selected |
-| `notes` | `<textarea>` | no | Only if the open question in `decisions.md` is resolved; max `reason_max_length` |
 | `csrf_token` | hidden | yes | From the `csrf_token` variable |
 
-Not in the form: `end_time` (computed by the backend), `client_id` (from the session), email, sport, student ID.
+Free times: with "Any physio", list every free slot of any physio, without naming the physio.
+With a chosen physio, list only that physio's free slots. Physio assignment for "Any physio" follows
+`decisions.md`, section "Physio assignment".
+
+Not in the form: `end_time` (fixed at 30 minutes by the backend), `client_id` (from the session),
+email, sport, student ID, additional notes.
 
 ## States
 
