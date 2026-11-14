@@ -1,0 +1,54 @@
+# T4: Optional physio and physio assignment
+
+Owner: Diego. Depends on: T1.
+
+## Objective
+
+Make `physio_id` optional on `POST /student/appointments`. When it is empty ("any physio"), the backend
+chooses the physio inside the booking transaction:
+
+- if all physios are free for the window, pick one at random;
+- if only one physio is free, assign that physio;
+- if some physios are free, pick one of the free ones at random;
+- if none is free, reject the booking.
+
+When `physio_id` is given, behaviour does not change: only that physio is checked.
+
+Files and functions:
+
+- `app/student.py`: `_parse_booking_form` (line 88). `physio_id` becomes optional.
+- `app/appointments.py`: `lock_booking(physio_id, resources)` (line 40). Lock the candidate physios, not one.
+- `app/appointments.py`: `create_appointment` (line 71). When no physio is given, check each candidate with
+  `check_availability` (`availability.py`, line 119) and choose among the free ones.
+
+Decisions: `decisions.md` #4 and "Physio assignment" (all four cases, including the mixed case, which is
+confirmed).
+Contracts: `contracts/student_new_appointment.md`, `physio_id` field.
+
+## Acceptance
+
+- A POST without `physio_id`, in a window where all physios are free, creates one appointment with a physio.
+  The test fixes the random choice so the outcome is deterministic.
+- A POST without `physio_id`, in a window where one physio is free, assigns that physio. Test it.
+- A POST without `physio_id`, in a window where some physios are free, assigns one of the free physios. Test it.
+- A POST without `physio_id`, where no physio is free, is rejected and nothing is saved.
+- A POST with `physio_id` behaves as before: only that physio is checked, and a busy physio is rejected.
+- The rejection message for "any physio" does not name or count physios.
+- Concurrent bookings cannot assign the same physio to two overlapping appointments. Use the same locking
+  pattern as `lock_booking`, covering every candidate physio.
+- Tests are added to `tests/test_student.py` and, for the locking, `tests/test_physio_transactions.py` as
+  the existing transaction tests do. `./scripts/test.sh`, lint and format pass.
+
+## Constraints
+
+- Do not add the free-times endpoint (T2) or the equipment endpoint (T3).
+- Do not change the duration logic (T1). Use `APPOINTMENT_DURATION` as it is.
+- Do not change the `Appointment` model or add migrations.
+- Do not change templates or `static/`.
+
+## Notes
+
+- Randomness should be easy to fix in tests, for example by calling `random.choice` through a module-level
+  reference that tests can patch.
+- The error for "no physio free" should use the existing `physio_busy` reason, without exposing which physios
+  exist.
