@@ -60,11 +60,26 @@ Do not mark an item met without evidence.
 - Add a `[Unreleased]` entry to `CHANGELOG.md` under the right heading, as `CLAUDE.md` requires.
 - Do not push and do not open a PR unless the owner asks.
 
-## 7. Report
+## 7. Update the context
+
+Do this only after the task passes steps 4 and 5. Keep the changes to the docs under `docs/frontend/`.
+
+1. **Status.** In `docs/frontend/tasks/README.md`, set the task's status to `Done` if every acceptance item is met. Otherwise set it to `Partial` and list the unmet items.
+2. **Task file.** Add an "Implementation notes" section at the end of `T<n>-*.md` with:
+   - the files and functions actually changed;
+   - any deviation from the objective, constraints or acceptance, and why;
+   - anything the next task needs to know: a new function name, route, field or constant.
+3. **Contracts.** If the implemented route, field, variable or state differs from the contract in `docs/frontend/contracts/`, update the contract to match the code. Mention the change in the task notes.
+4. **Dependent tasks.** If a later task depends on something this task changed, add a short note in that task's "Notes" section. Do not rewrite its objective or acceptance.
+5. **Decisions.** Do not change `docs/frontend/decisions.md` yourself. If the work shows that a decision is wrong or incomplete, report it and wait for the owner to decide.
+6. Commit the context update with the code, in the same commit or a separate `docs:` commit on the same branch.
+
+## 8. Report
 
 Finish with:
 
 1. What changed, file by file.
 2. The acceptance report from step 5.
 3. The output of the four commands in step 4.
-4. Anything out of scope that you noticed but did not change.
+4. The context updates from step 7, and any decision the owner must make.
+5. Anything out of scope that you noticed but did not change.
