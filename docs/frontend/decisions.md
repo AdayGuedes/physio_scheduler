@@ -26,7 +26,7 @@ Applies when `physio_id` is empty ("Any physio"):
   - all physios free: one is picked at random;
   - only one physio free: that physio is assigned;
   - some but not all free: one of the free physios is picked at random.
-    This last case is not in the original brief; it follows from the two rules above and needs confirmation.
+    Confirmed by the physio.
 
 When the student chooses a physio, only that physio's free slots are shown.
 
