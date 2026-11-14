@@ -33,8 +33,8 @@ When the student chooses a physio, only that physio's free slots are shown.
 ## Clinic hours and start times
 
 - Opening hours: 08:00 to 18:00.
-- Start times: every 30 minutes from 08:00 to 17:30. The last start is 17:30 so the 30-minute
-  appointment ends at closing time. The start times are the grid used by T2.
+- Start times: every 30 minutes from 08:00 to 18:00, inclusive. The last start is 18:00, so the
+  30-minute appointment ends at 18:30, after closing time. The start times are the grid used by T2.
 
 ## Reasons for appointment
 

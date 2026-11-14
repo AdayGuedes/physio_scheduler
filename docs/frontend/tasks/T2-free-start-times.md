@@ -2,7 +2,7 @@
 
 Owner: Diego. Depends on: T1.
 
-Candidate start times: every 30 minutes from 08:00 to 17:30 (see `decisions.md`, "Clinic hours and start times").
+Candidate start times: every 30 minutes from 08:00 to 18:00, inclusive (see `decisions.md`, "Clinic hours and start times").
 
 ## Objective
 
@@ -52,7 +52,7 @@ No physio ids or names appear in the response.
 
 ## Notes
 
-- The candidate grid is fixed: 08:00 to 17:30, every 30 minutes. Define it once as a constant next to
+- The candidate grid is fixed: 08:00 to 18:00 inclusive, every 30 minutes. Define it once as a constant next to
   `APPOINTMENT_DURATION`, not as literals in the function.
 - The response is read-only. Two students can get the same start time in the list; the POST (T4) is what
   enforces the real booking, so the list is advisory.
