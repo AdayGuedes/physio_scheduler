@@ -1,9 +1,9 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 519 collected cases (including
+it would fail. On Python 3.13 the suite has 520 collected cases (including
 parametrized cases). One is an expected failure (`xfail`); the DST-fold case
-requires POSIX `time.tzset()` and skips on Windows, where 517 cases pass.
+requires POSIX `time.tzset()` and skips on Windows, where 518 cases pass.
 Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -19,7 +19,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
 | `test_blueprints.py` | 6 | App factory: blueprints, URL prefixes, models and the `/` redirect by role |
 | `test_config.py` | 4 | `ENABLE_DEV_SEED` flag parsing in `config.py` |
-| `test_models.py` | 15 | `User` and `Appointment` constraints, relationships and role validation |
+| `test_models.py` | 16 | `User` and `Appointment` constraints, relationships and role validation |
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 19 | Inventory and dev-users seed functions, `flask seed-inventory` and `flask seed-dev-users` commands |
@@ -431,6 +431,11 @@ see the original configuration.
 - **Action:** replace a saved appointment's client and physio with different users of the correct roles.
 - **Expected:** both changes commit successfully.
 - **Why it can fail:** role validation rejects valid reassignment as well as invalid data.
+
+#### `test_status_update_does_not_revalidate_unchanged_participants`
+- **Action:** change an assigned physio's role after booking, then cancel the appointment without changing either participant ID.
+- **Expected:** the status update succeeds.
+- **Why it can fail:** an unconditional update hook rechecks historical participants and prevents cancellation.
 
 ---
 

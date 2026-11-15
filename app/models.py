@@ -1,5 +1,5 @@
 from flask_login import UserMixin
-from sqlalchemy import event, select
+from sqlalchemy import event, inspect, select
 
 from app.extensions import db
 
@@ -101,6 +101,12 @@ class Appointment(db.Model):
 @event.listens_for(Appointment, "before_insert")
 @event.listens_for(Appointment, "before_update")
 def validate_appointment_roles(_mapper, connection, appointment):
+    state = inspect(appointment)
+    if state.persistent and not (
+        state.attrs.client_id.history.has_changes()
+        or state.attrs.physio_id.history.has_changes()
+    ):
+        return
     if appointment.client_id is None or appointment.physio_id is None:
         return
     if appointment.client_id == appointment.physio_id:

@@ -261,3 +261,26 @@ def test_appointment_model_accepts_valid_role_update(app, appointment_users):
 
     assert appointment.client_id == appointment_users[1]
     assert appointment.physio_id == appointment_users[3]
+
+
+def test_status_update_does_not_revalidate_unchanged_participants(
+    app, appointment_users
+):
+    appointment = Appointment(
+        client_id=appointment_users[0],
+        physio_id=appointment_users[2],
+        start_time=datetime(2035, 1, 15, 10, tzinfo=timezone.utc),
+        end_time=datetime(2035, 1, 15, 11, tzinfo=timezone.utc),
+        reason="Treatment",
+    )
+    db.session.add(appointment)
+    db.session.commit()
+
+    physio = db.session.get(User, appointment_users[2])
+    physio.role = "client"
+    db.session.commit()
+
+    appointment.status = "cancelled_by_client"
+    db.session.commit()
+
+    assert appointment.status == "cancelled_by_client"
