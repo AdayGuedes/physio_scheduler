@@ -1,3 +1,4 @@
+
 from datetime import datetime
 
 from flask import (
@@ -16,6 +17,7 @@ from wtforms.validators import ValidationError
 
 from app.appointments import (
     REASON_MAX_LENGTH,
+    SPORT_OPTIONS,
     AvailabilityError,
     BookingTransactionError,
     BookingValidationError,
@@ -53,7 +55,7 @@ def _booking_form(errors=None, status=200):
     form_data = {
         key: request.form[key]
         for key in request.form
-        if key in {"physio_id", "start_time", "end_time", "reason"}
+        if key in {"physio_id", "start_time", "end_time", "reason", "sport"}
         or key.startswith("resource_")
     }
     return (
@@ -114,22 +116,35 @@ def _parse_booking_form():
                 raise BookingInputError(
                     "Enter whole-number equipment quantities."
                 ) from None
+
     try:
         physio_id = int(request.form.get("physio_id", ""))
     except ValueError:
         raise BookingInputError("Select a valid physiotherapist.") from None
+
     dates = []
     for field, label in [("start_time", "start"), ("end_time", "end")]:
         try:
             dates.append(datetime.fromisoformat(request.form.get(field, "")))
         except ValueError:
-            raise BookingInputError(f"Enter a valid {label} date and time.") from None
+            raise BookingInputError(
+                f"Enter a valid {label} date and time."
+            ) from None
+
+    sport = request.form.get("sport", "").strip()
+
+    if sport and sport not in SPORT_OPTIONS:
+        raise BookingInputError("Select a valid sport.")
+
+    sport = sport or None
+
     return (
         physio_id,
         dates[0],
         dates[1],
         request.form.get("reason", ""),
         resources,
+        sport,
     )
 
 
@@ -138,9 +153,23 @@ def _parse_booking_form():
 def create_appointment():
     _check_csrf()
     try:
-        physio_id, start_time, end_time, reason, resources = _parse_booking_form()
+        (
+            physio_id,
+            start_time,
+            end_time,
+            reason,
+            resources,
+            sport,
+        ) = _parse_booking_form()
+
         book_appointment(
-            current_user.id, physio_id, start_time, end_time, reason, resources
+            current_user.id,
+            physio_id,
+            start_time,
+            end_time,
+            reason,
+            resources,
+            sport=sport,
         )
     except AvailabilityError as error:
         return _booking_form([str(error)], 409)
@@ -160,6 +189,7 @@ def create_appointment():
     except (SQLAlchemyError, BookingTransactionError):
         db.session.rollback()
         abort(503, description="Unable to save the appointment. Please try again.")
+
     return redirect(url_for("student.my_appointments"), code=303)
 
 
@@ -176,4 +206,5 @@ def cancel_appointment(id):
     except SQLAlchemyError:
         db.session.rollback()
         abort(503, description="Unable to cancel the appointment. Please try again.")
+
     return redirect(url_for("student.my_appointments"), code=303)
