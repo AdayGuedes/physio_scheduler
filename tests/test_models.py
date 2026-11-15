@@ -135,3 +135,129 @@ def test_appointment_requires_physio(app):
 
     assert "physio_id" in str(exc_info.value)
     db.session.rollback()
+
+
+@pytest.fixture
+def appointment_users(app):
+    users = [
+        User(
+            name=name,
+            email=email,
+            password_hash="test-hash",
+            role=role,
+        )
+        for name, email, role in [
+            ("Client", "client-one@example.com", "client"),
+            ("Other Client", "client-two@example.com", "client"),
+            ("Physio", "physio-one@example.com", "physio"),
+            ("Other Physio", "physio-two@example.com", "physio"),
+        ]
+    ]
+    db.session.add_all(users)
+    db.session.commit()
+    return [user.id for user in users]
+
+
+@pytest.mark.parametrize(
+    "client_index,physio_index,message",
+    [
+        (2, 3, "client_id must reference a client"),
+        (0, 1, "physio_id must reference a physio"),
+        (0, 0, "client_id and physio_id must differ"),
+        (2, 2, "client_id and physio_id must differ"),
+    ],
+)
+def test_appointment_model_rejects_invalid_roles_on_insert(
+    app, appointment_users, client_index, physio_index, message
+):
+    appointment = Appointment(
+        client_id=appointment_users[client_index],
+        physio_id=appointment_users[physio_index],
+        start_time=datetime(2035, 1, 15, 10, tzinfo=timezone.utc),
+        end_time=datetime(2035, 1, 15, 11, tzinfo=timezone.utc),
+        reason="Treatment",
+    )
+    db.session.add(appointment)
+
+    with pytest.raises(ValueError, match=message):
+        db.session.commit()
+
+    db.session.rollback()
+    assert db.session.scalar(db.select(Appointment.id)) is None
+
+
+@pytest.mark.parametrize(
+    "field,user_index,message",
+    [
+        ("client_id", 3, "client_id must reference a client"),
+        ("physio_id", 1, "physio_id must reference a physio"),
+        ("client_id", 2, "client_id and physio_id must differ"),
+        ("physio_id", 0, "client_id and physio_id must differ"),
+    ],
+)
+def test_appointment_model_rejects_invalid_roles_on_update(
+    app, appointment_users, field, user_index, message
+):
+    appointment = Appointment(
+        client_id=appointment_users[0],
+        physio_id=appointment_users[2],
+        start_time=datetime(2035, 1, 15, 10, tzinfo=timezone.utc),
+        end_time=datetime(2035, 1, 15, 11, tzinfo=timezone.utc),
+        reason="Treatment",
+    )
+    db.session.add(appointment)
+    db.session.commit()
+    appointment_id = appointment.id
+    setattr(appointment, field, appointment_users[user_index])
+
+    with pytest.raises(ValueError, match=message):
+        db.session.commit()
+
+    db.session.rollback()
+    saved = db.session.get(Appointment, appointment_id)
+    assert saved.client_id == appointment_users[0]
+    assert saved.physio_id == appointment_users[2]
+
+
+@pytest.mark.parametrize(
+    "field,message",
+    [
+        ("client_id", "client_id must reference a client"),
+        ("physio_id", "physio_id must reference a physio"),
+    ],
+)
+def test_appointment_model_rejects_unknown_users(
+    app, appointment_users, field, message
+):
+    appointment = Appointment(
+        client_id=appointment_users[0],
+        physio_id=appointment_users[2],
+        start_time=datetime(2035, 1, 15, 10, tzinfo=timezone.utc),
+        end_time=datetime(2035, 1, 15, 11, tzinfo=timezone.utc),
+        reason="Treatment",
+    )
+    setattr(appointment, field, max(appointment_users) + 1)
+    db.session.add(appointment)
+
+    with pytest.raises(ValueError, match=message):
+        db.session.commit()
+
+    db.session.rollback()
+
+
+def test_appointment_model_accepts_valid_role_update(app, appointment_users):
+    appointment = Appointment(
+        client_id=appointment_users[0],
+        physio_id=appointment_users[2],
+        start_time=datetime(2035, 1, 15, 10, tzinfo=timezone.utc),
+        end_time=datetime(2035, 1, 15, 11, tzinfo=timezone.utc),
+        reason="Treatment",
+    )
+    db.session.add(appointment)
+    db.session.commit()
+    appointment.client_id = appointment_users[1]
+    appointment.physio_id = appointment_users[3]
+    db.session.commit()
+
+    assert appointment.client_id == appointment_users[1]
+    assert appointment.physio_id == appointment_users[3]

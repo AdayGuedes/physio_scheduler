@@ -1,9 +1,9 @@
 # Test suite documentation
 
 What every test in `tests/` covers, the result it expects, and the usual reasons
-it would fail. On Python 3.13 the suite has 507 collected cases (including
+it would fail. On Python 3.13 the suite has 519 collected cases (including
 parametrized cases). One is an expected failure (`xfail`); the DST-fold case
-requires POSIX `time.tzset()` and skips on Windows, where 506 cases pass.
+requires POSIX `time.tzset()` and skips on Windows, where 517 cases pass.
 Eight modern sqlite3 transaction cases are skipped on Python 3.11.
 
 ```bash
@@ -19,7 +19,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_availability.py` | 52 | Physio schedules, shared resource capacity, and input validation |
 | `test_blueprints.py` | 6 | App factory: blueprints, URL prefixes, models and the `/` redirect by role |
 | `test_config.py` | 4 | `ENABLE_DEV_SEED` flag parsing in `config.py` |
-| `test_models.py` | 4 | `User` and `Appointment` constraints and relationships |
+| `test_models.py` | 15 | `User` and `Appointment` constraints, relationships and role validation |
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 19 | Inventory and dev-users seed functions, `flask seed-inventory` and `flask seed-dev-users` commands |
@@ -411,6 +411,26 @@ see the original configuration.
 - **Why it can fail (no error raised):** `physio_id` lost `nullable=False`. The test can
   also fail with a different error if another required field is missing from the appointment,
   because then it would not be testing `physio_id`.
+
+#### `test_appointment_model_rejects_invalid_roles_on_insert` (4 cases)
+- **Action:** save appointments with a physio in the client field, a client in the physio field, or the same user in both fields.
+- **Expected:** `ValueError` and no appointment row.
+- **Why it can fail:** direct model inserts bypass the role checks in the booking service.
+
+#### `test_appointment_model_rejects_invalid_roles_on_update` (4 cases)
+- **Action:** change a saved appointment to use an incorrect role or the same user twice.
+- **Expected:** `ValueError`; after rollback, the original client and physio remain stored.
+- **Why it can fail:** the model checks only inserts, not updates.
+
+#### `test_appointment_model_rejects_unknown_users` (2 cases)
+- **Action:** save an appointment with a missing client or physio ID.
+- **Expected:** `ValueError` for the missing role.
+- **Why it can fail:** SQLite does not always enforce foreign keys in test connections.
+
+#### `test_appointment_model_accepts_valid_role_update`
+- **Action:** replace a saved appointment's client and physio with different users of the correct roles.
+- **Expected:** both changes commit successfully.
+- **Why it can fail:** role validation rejects valid reassignment as well as invalid data.
 
 ---
 
