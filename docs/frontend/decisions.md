@@ -14,7 +14,7 @@ Backend contract source: `docs/student_appointments.md`.
 | 4 | Physio | The student chooses a physio, or "Any physio" (default). See "Physio assignment" below. |
 | 5 | Equipment | Shown only when available at the chosen time. |
 | 6 | Cancellation | Available from the student's appointment list. Uses `POST /student/appointments/<id>/cancel`. |
-| 7 | Contract owner | Backend changes are listed in the task specs and done outside the frontend tasks. |
+| 7 | Backend scope | Backend changes are listed in the task specs and done outside the frontend tasks. |
 
 ## Physio assignment
 
