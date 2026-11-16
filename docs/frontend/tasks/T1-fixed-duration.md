@@ -1,6 +1,6 @@
 # T1: Fix appointment duration at 30 minutes
 
-Owner: Diego. Depends on: none.
+Depends on: none.
 
 ## Objective
 
@@ -18,7 +18,7 @@ Files and functions:
 - `app/student.py`: `_booking_form` (line 44). Remove `reason_max_length` from the template context,
   because only the removed notes field used it.
 
-Decisions: `decisions.md` #2 (fixed 30 minutes) and #7 (backend owned by Diego).
+Decisions: `decisions.md` #2 (fixed 30 minutes) and #7 (backend changes listed separately).
 Contracts: `contracts/student_new_appointment.md`, "Not in the form".
 Documentation: `docs/student_appointments.md`. Remove the `end_time` row from the form table and document
 that the end is computed.

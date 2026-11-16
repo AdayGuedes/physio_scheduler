@@ -1,6 +1,6 @@
 # T6: Student appointment list and cancel
 
-Owner: Aday. Depends on: none.
+Depends on: none.
 
 ## Objective
 
@@ -44,4 +44,4 @@ Contracts: `contracts/student_appointments.md`.
   `appointment.physio.name`.
 - The "future start" check for the cancel button is a display rule. The backend decides whether the cancel is
   allowed, so a stale page still gets a clear error.
-- Templates and `static/` are Vitor's area in `CLAUDE.md`. Agree the handover before starting.
+- Templates and `static/` are the frontend area in `CLAUDE.md`. Agree the handover before starting.

@@ -3,14 +3,14 @@
 Each task file is self-contained: objective, acceptance, constraints and notes.
 Before implementing a task, read `../decisions.md` and the contracts it lists.
 
-| ID | Task | Owner | Depends on | Status |
-|---|---|---|---|---|
-| T1 | Fix appointment duration at 30 minutes | Diego | — | Pending |
-| T2 | Free start times endpoint | Diego | T1 | Pending |
-| T3 | Available equipment endpoint | Aday | — | Pending |
-| T4 | Optional physio and physio assignment | Diego | T1 | Pending |
-| T5 | Booking page and booking JavaScript | Aday | T2, T3, T4 | Pending |
-| T6 | Student appointment list and cancel | Aday | — | Pending |
+| ID | Task | Depends on | Status |
+|---|---|---|---|
+| T1 | Fix appointment duration at 30 minutes | — | Pending |
+| T2 | Free start times endpoint | T1 | Pending |
+| T3 | Available equipment endpoint | — | Pending |
+| T4 | Optional physio and physio assignment | T1 | Pending |
+| T5 | Booking page and booking JavaScript | T2, T3, T4 | Pending |
+| T6 | Student appointment list and cancel | — | Pending |
 
 ## Order
 

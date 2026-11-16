@@ -1,8 +1,8 @@
 # T5: Booking page and booking JavaScript
 
-Owner: Aday. Depends on: T2, T3, T4.
+Depends on: T2, T3, T4.
 
-Templates and `static/` are Vitor's area in `CLAUDE.md`. Agree the handover with Vitor before starting.
+Templates and `static/` are the frontend area in `CLAUDE.md`. Agree the handover with whoever works there before starting.
 
 ## Objective
 

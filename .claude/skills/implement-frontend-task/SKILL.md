@@ -9,7 +9,7 @@ Input: the task ID, `T1` to `T6`. If the user did not give one, ask which task.
 
 ## 1. Read, in this order
 
-1. `docs/frontend/tasks/README.md`: confirm the task's owner, dependencies and status.
+1. `docs/frontend/tasks/README.md`: confirm the task's dependencies and status.
 2. `docs/frontend/tasks/T<n>-*.md`: the task. Its objective, acceptance, constraints and notes are the spec.
 3. `docs/frontend/decisions.md`: the decisions the task lists under "Decisions".
 4. The contracts the task lists under "Contracts", in `docs/frontend/contracts/`.
@@ -54,11 +54,11 @@ Do not mark an item met without evidence.
 
 ## 6. Commit
 
-- Branch: `<type>/PS-X/<task-name>` or the branch the owner agreed, as `CLAUDE.md` requires.
+- Branch: `<type>/PS-X/<task-name>` or the branch agreed for the task, as `CLAUDE.md` requires.
 - Commit message in English, with the prefix `feat:`, `refactor:` or `bugfix:`, and the attribution line:
   `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`
 - Add a `[Unreleased]` entry to `CHANGELOG.md` under the right heading, as `CLAUDE.md` requires.
-- Do not push and do not open a PR unless the owner asks.
+- Do not push and do not open a PR unless the user asks.
 
 ## 7. Update the context
 
@@ -71,7 +71,7 @@ Do this only after the task passes steps 4 and 5. Keep the changes to the docs u
    - anything the next task needs to know: a new function name, route, field or constant.
 3. **Contracts.** If the implemented route, field, variable or state differs from the contract in `docs/frontend/contracts/`, update the contract to match the code. Mention the change in the task notes.
 4. **Dependent tasks.** If a later task depends on something this task changed, add a short note in that task's "Notes" section. Do not rewrite its objective or acceptance.
-5. **Decisions.** Do not change `docs/frontend/decisions.md` yourself. If the work shows that a decision is wrong or incomplete, report it and wait for the owner to decide.
+5. **Decisions.** Do not change `docs/frontend/decisions.md` yourself. If the work shows that a decision is wrong or incomplete, report it and wait for the user to decide.
 6. Commit the context update with the code, in the same commit or a separate `docs:` commit on the same branch.
 
 ## 8. Report
@@ -81,5 +81,5 @@ Finish with:
 1. What changed, file by file.
 2. The acceptance report from step 5.
 3. The output of the four commands in step 4.
-4. The context updates from step 7, and any decision the owner must make.
+4. The context updates from step 7, and any decision that needs a person to make.
 5. Anything out of scope that you noticed but did not change.

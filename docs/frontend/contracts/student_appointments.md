@@ -44,4 +44,4 @@ Decisions: see `docs/frontend/decisions.md`.
 
 - The page must not read `localStorage`. Remove the current `main.js` block for "My appointments".
 - Cancel is a form `POST` with `csrf_token`. No JavaScript confirm is needed for the contract; a
-  confirmation step is a UI choice for Vitor.
+  confirmation step is a UI choice for the frontend.

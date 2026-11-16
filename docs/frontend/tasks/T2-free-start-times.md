@@ -1,6 +1,6 @@
 # T2: Free start times endpoint
 
-Owner: Diego. Depends on: T1.
+Depends on: T1.
 
 Candidate start times: every 30 minutes from 08:00 to 18:00, inclusive (see `decisions.md`, "Clinic hours and start times").
 

@@ -1,6 +1,6 @@
 # Frontend decisions: student booking (PS-12 follow-up)
 
-Status: draft, pending review with Diego (backend) and Vitor (frontend).
+Status: draft, pending review by the team.
 Scope: the student booking form and the student appointment list.
 Backend contract source: `docs/student_appointments.md`.
 
@@ -14,7 +14,7 @@ Backend contract source: `docs/student_appointments.md`.
 | 4 | Physio | The student chooses a physio, or "Any physio" (default). See "Physio assignment" below. |
 | 5 | Equipment | Shown only when available at the chosen time. |
 | 6 | Cancellation | Available from the student's appointment list. Uses `POST /student/appointments/<id>/cancel`. |
-| 7 | Contract owner | Backend changes are owned by Diego. |
+| 7 | Contract owner | Backend changes are listed in the task specs and done outside the frontend tasks. |
 
 ## Physio assignment
 
@@ -54,7 +54,7 @@ template uses short codes (`injury`, `pain`, and so on); T5 replaces them with t
 
 None for the booking form at this time.
 
-## Backend changes needed (Diego)
+## Backend changes needed
 
 1. Stop requiring `end_time` on `POST /student/appointments`. Compute it as `start_time + 30 minutes`.
 2. Add a read endpoint for free start times, as JSON. Input: date, and optionally `physio_id`.
@@ -62,7 +62,7 @@ None for the booking form at this time.
 3. Add a read endpoint for equipment with available quantity for one start time, as JSON.
 4. Make `physio_id` optional on `POST /student/appointments`. When empty, assign a physio by the rule in "Physio assignment", within the same transaction as the availability check.
 
-## Frontend changes (Vitor)
+## Frontend changes
 
 - `templates/student/new_appointment.html`: the fields in `contracts/student_new_appointment.md`.
 - `static/js/main.js`: replace `localStorage` with `fetch` calls to the endpoints above.

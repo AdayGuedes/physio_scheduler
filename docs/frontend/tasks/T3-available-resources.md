@@ -1,6 +1,6 @@
 # T3: Available equipment endpoint
 
-Owner: Aday. Depends on: none. T1 provides `APPOINTMENT_DURATION`; if T1 is not merged yet, the window
+Depends on: none. T1 provides `APPOINTMENT_DURATION`; if T1 is not merged yet, the window
 length is the only shared piece, so agree on the constant name first.
 
 ## Objective

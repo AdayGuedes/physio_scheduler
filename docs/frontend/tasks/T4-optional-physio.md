@@ -1,6 +1,6 @@
 # T4: Optional physio and physio assignment
 
-Owner: Diego. Depends on: T1.
+Depends on: T1.
 
 ## Objective
 
