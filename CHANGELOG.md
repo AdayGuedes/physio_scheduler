@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-9] Add a protected FullCalendar event feed with date filters and API documentation
 - [PS-12] Complete shared base layout, role-based navigation and styling
 - [PS-28] Validate client and physio roles when appointments are inserted or updated
+- [NO-REF] Add frontend decisions, contracts, task specs and implementation skill for booking
 
 ### Changed
 
