@@ -54,5 +54,6 @@ No physio ids or names appear in the response.
 
 - The candidate grid is fixed: 08:00 to 18:00 inclusive, every 30 minutes. Define it once as a constant next to
   `APPOINTMENT_DURATION`, not as literals in the function.
+- T1 is done: `APPOINTMENT_DURATION` already exists in `app/appointments.py`. Import it, do not redefine it.
 - The response is read-only. Two students can get the same start time in the list; the POST (T4) is what
   enforces the real booking, so the list is advisory.

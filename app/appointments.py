@@ -1,6 +1,6 @@
 """Student appointment queries and transactional booking operations."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import selectinload
 
@@ -9,6 +9,7 @@ from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
 REASON_MAX_LENGTH = 500
+APPOINTMENT_DURATION = timedelta(minutes=30)
 
 
 class BookingTransactionError(RuntimeError):
@@ -68,16 +69,20 @@ def lock_booking(physio_id, resources):
             ).all()
 
 
-def create_appointment(client_id, physio_id, start_time, end_time, reason, resources):
+def create_appointment(client_id, physio_id, start_time, reason, resources):
     """Validate and commit a booking and its equipment as one transaction.
 
-    The caller must finish unrelated writes first. Unflushed changes are rejected
-    without discarding them. On failure after validation, the
-    transaction is rolled back, including all appointment-resource rows.
+    The appointment ends APPOINTMENT_DURATION after start_time. The caller must
+    finish unrelated writes first. Unflushed changes are rejected without
+    discarding them. On failure after validation, the transaction is rolled back,
+    including all appointment-resource rows.
     """
     if db.session.new or db.session.dirty or db.session.deleted:
         raise BookingTransactionError("Finish pending database changes before booking.")
     try:
+        if not isinstance(start_time, datetime):
+            raise BookingValidationError("Enter a valid start date and time.")
+        end_time = start_time + APPOINTMENT_DURATION
         validate_availability_request(start_time, end_time, resources)
         if start_time <= datetime.now():  # noqa: DTZ005 (DB uses local naive times)
             raise BookingValidationError("Appointments must start in the future.")

@@ -45,8 +45,7 @@ def _booking_form(errors=None, status=200):
     form_data = {
         key: request.form[key]
         for key in request.form
-        if key in {"physio_id", "start_time", "end_time", "reason"}
-        or key.startswith("resource_")
+        if key in {"physio_id", "start_time", "reason"} or key.startswith("resource_")
     }
     return (
         render_template(
@@ -62,7 +61,6 @@ def _booking_form(errors=None, status=200):
             errors=errors or [],
             csrf_token=generate_csrf(),
             form_data=form_data,
-            reason_max_length=REASON_MAX_LENGTH,
         ),
         status,
     )
@@ -86,7 +84,7 @@ def my_appointments():
 
 
 def _parse_booking_form():
-    for field in ("physio_id", "start_time", "end_time", "reason"):
+    for field in ("physio_id", "start_time", "reason"):
         if len(request.form.getlist(field)) > 1:
             raise BookingInputError("Submit each field only once.")
     resources = {}
@@ -117,18 +115,15 @@ def _parse_booking_form():
             raise ValueError
     except ValueError:
         raise BookingInputError("Select a valid physiotherapist.") from None
-    dates = []
-    for field, label in [("start_time", "start"), ("end_time", "end")]:
-        try:
-            if len(request.form.get(field, "")) > 64:
-                raise ValueError
-            dates.append(datetime.fromisoformat(request.form.get(field, "")))
-        except ValueError:
-            raise BookingInputError(f"Enter a valid {label} date and time.") from None
+    try:
+        if len(request.form.get("start_time", "")) > 64:
+            raise ValueError
+        start_time = datetime.fromisoformat(request.form.get("start_time", ""))
+    except ValueError:
+        raise BookingInputError("Enter a valid start date and time.") from None
     return (
         physio_id,
-        dates[0],
-        dates[1],
+        start_time,
         request.form.get("reason", ""),
         resources,
     )
@@ -138,10 +133,8 @@ def _parse_booking_form():
 @login_required
 def create_appointment():
     try:
-        physio_id, start_time, end_time, reason, resources = _parse_booking_form()
-        book_appointment(
-            current_user.id, physio_id, start_time, end_time, reason, resources
-        )
+        physio_id, start_time, reason, resources = _parse_booking_form()
+        book_appointment(current_user.id, physio_id, start_time, reason, resources)
     except AvailabilityError as error:
         return _booking_form([str(error)], 409)
     except (BookingInputError, BookingValidationError) as error:
@@ -150,8 +143,8 @@ def create_appointment():
         return _booking_form(
             [
                 (
-                    "Check the selected physiotherapist and equipment, use future local dates "
-                    "with the end after the start, and enter a reason of 1 to "
+                    "Check the selected physiotherapist and equipment, use a future local "
+                    "start time, and enter a reason of 1 to "
                     f"{REASON_MAX_LENGTH} characters."
                 )
             ],

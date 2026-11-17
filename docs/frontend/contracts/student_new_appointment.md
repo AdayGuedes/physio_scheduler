@@ -44,4 +44,5 @@ email, sport, student ID, additional notes.
 ## Blocking dependencies
 
 - Free-times endpoint and equipment availability endpoint (see `decisions.md`, backend changes 2 and 3).
-- `end_time` removed from the POST (backend change 1).
+- `end_time` removed from the POST (backend change 1). Done in T1: the backend ignores any submitted
+  `end_time` and computes the end from `APPOINTMENT_DURATION`.
