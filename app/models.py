@@ -1,4 +1,5 @@
 from flask_login import UserMixin
+from sqlalchemy import event, inspect, select
 
 from app.extensions import db
 
@@ -95,6 +96,35 @@ class Appointment(db.Model):
             "end_time > start_time", name="ck_end_time_posterior_start_time"
         ),
     )
+
+
+@event.listens_for(Appointment, "before_insert")
+@event.listens_for(Appointment, "before_update")
+def validate_appointment_roles(_mapper, connection, appointment):
+    state = inspect(appointment)
+    if state.persistent and not (
+        state.attrs.client_id.history.has_changes()
+        or state.attrs.physio_id.history.has_changes()
+    ):
+        return
+    if appointment.client_id is None or appointment.physio_id is None:
+        return
+    if appointment.client_id == appointment.physio_id:
+        raise ValueError("client_id and physio_id must differ")
+
+    users = User.__table__
+    roles = dict(
+        connection.execute(
+            select(users.c.id, users.c.role).where(
+                users.c.id.in_([appointment.client_id, appointment.physio_id])
+            )
+        ).all()
+    )
+    if roles.get(appointment.client_id) != "client":
+        raise ValueError("client_id must reference a client")
+
+    if roles.get(appointment.physio_id) != "physio":
+        raise ValueError("physio_id must reference a physio")
 
 
 class AppointmentResource(db.Model):
