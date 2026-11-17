@@ -55,3 +55,15 @@ Contracts: `contracts/student_new_appointment.md`, `physio_id` field.
   reference that tests can patch.
 - The error for "no physio free" should use the existing `physio_busy` reason, without exposing which physios
   exist.
+
+## Implementation notes
+
+- `app/student.py` lets `_parse_booking_form` return `None` when `physio_id` is missing or blank.
+- `app/appointments.py` makes `lock_booking` lock all candidate physios before checking availability and
+  makes `create_appointment` choose randomly from those still free. An explicitly selected physio keeps
+  its previous validation and availability behavior.
+- `tests/test_student.py` covers missing and blank selections, all/one/some/no free physios, the generic
+  rejection message, and an explicitly selected busy physio. `tests/test_physio_transactions.py` checks
+  concurrent bookings with one or two physios in legacy and modern SQLite transaction modes.
+- No deviation from the objective, acceptance criteria, or constraints. T5 can submit an empty or omitted
+  `physio_id` for "Any physio"; the backend commits the assigned physio with the appointment.

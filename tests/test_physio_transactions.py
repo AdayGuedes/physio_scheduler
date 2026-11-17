@@ -313,3 +313,76 @@ def test_concurrent_management_writes_are_serialized(
         with test_app.app_context():
             db.session.remove()
             db.engine.dispose()
+
+
+@pytest.mark.parametrize("transaction_mode", ["legacy", "modern"])
+@pytest.mark.parametrize("physio_count", [1, 2])
+def test_concurrent_any_physio_bookings_do_not_double_assign(
+    tmp_path, transaction_mode, physio_count
+):
+    test_app = Flask(__name__)
+    test_app.config["SQLALCHEMY_DATABASE_URI"] = (
+        "sqlite:///" + (tmp_path / "any-physio.db").as_posix()
+    )
+    if transaction_mode == "modern":
+        if not hasattr(sqlite3, "LEGACY_TRANSACTION_CONTROL"):
+            pytest.skip("Modern sqlite3 transaction control requires Python 3.12+.")
+        test_app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"autocommit": False}
+        }
+    db.init_app(test_app)
+    with test_app.app_context():
+        db.create_all()
+        users = [
+            User(
+                name=f"Client {i}",
+                email=f"client-{i}@example.com",
+                password_hash="test-hash",
+                role="client",
+            )
+            for i in range(3)
+        ]
+        users.extend(
+            User(
+                name=f"Physio {i}",
+                email=f"physio-{i}@example.com",
+                password_hash="test-hash",
+                role="physio",
+            )
+            for i in range(physio_count)
+        )
+        db.session.add_all(users)
+        db.session.commit()
+        client_ids = [user.id for user in users[:3]]
+    ready = Barrier(3)
+
+    def book(index):
+        with test_app.app_context():
+            ready.wait(timeout=10)
+            try:
+                create_appointment(
+                    client_ids[index],
+                    None,
+                    datetime(2035, 1, 15, 10),
+                    "Treatment",
+                    {},
+                )
+            except AvailabilityError:
+                return False
+            return True
+
+    try:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            results = list(executor.map(book, range(3)))
+        assert results.count(True) == physio_count
+        with test_app.app_context():
+            appointments = db.session.scalars(db.select(Appointment)).all()
+            assert len(appointments) == physio_count
+            assert (
+                len({appointment.physio_id for appointment in appointments})
+                == physio_count
+            )
+    finally:
+        with test_app.app_context():
+            db.session.remove()
+            db.engine.dispose()

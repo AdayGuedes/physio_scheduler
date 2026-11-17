@@ -278,7 +278,6 @@ def test_create_without_equipment(student_app, people):
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("physio_id", ""),
         ("physio_id", "999"),
         ("physio_id", "-1"),
         ("start_time", "wrong"),
@@ -347,6 +346,111 @@ def test_different_physios_can_book_with_sufficient_stock(student_app, people):
     data = _form(people)
     data["physio_id"] = str(people[0][3])
     assert client.post("/student/appointments", data=data).status_code == 303
+
+
+@pytest.mark.parametrize("physio_field", ["missing", "empty", "whitespace"])
+def test_any_physio_assigns_random_free_physio(
+    student_app, people, monkeypatch, physio_field
+):
+    ids, bed_id = people
+    data = _form(people)
+    data.pop(f"resource_{bed_id}")
+    if physio_field == "missing":
+        data.pop("physio_id")
+    else:
+        data["physio_id"] = "" if physio_field == "empty" else "   "
+    monkeypatch.setattr("app.appointments.random.choice", lambda choices: choices[-1])
+
+    response = _login(student_app, ids[0]).post("/student/appointments", data=data)
+
+    assert response.status_code == 303
+    appointment = db.session.scalar(db.select(Appointment))
+    assert appointment.physio_id == ids[3]
+    assert appointment.end_time == datetime(2035, 1, 15, 10, 30)
+
+
+def test_any_physio_assigns_the_only_free_physio(student_app, people):
+    ids, bed_id = people
+    _saved(people)
+    data = _form(people)
+    data.pop("physio_id")
+    data.pop(f"resource_{bed_id}")
+
+    response = _login(student_app, ids[1]).post("/student/appointments", data=data)
+
+    assert response.status_code == 303
+    appointments = db.session.scalars(db.select(Appointment)).all()
+    assert len(appointments) == 2
+    assert appointments[-1].physio_id == ids[3]
+
+
+def test_any_physio_randomly_assigns_only_among_free_physios(
+    student_app, people, monkeypatch
+):
+    ids, bed_id = people
+    third = User(
+        name="Third",
+        email="third@example.com",
+        password_hash="test-hash",
+        role="physio",
+    )
+    db.session.add(third)
+    db.session.commit()
+    _saved(people)
+    data = _form(people)
+    data.pop("physio_id")
+    data.pop(f"resource_{bed_id}")
+    choices_seen = []
+
+    def choose_first(choices):
+        choices_seen.extend(choices)
+        return choices[0]
+
+    monkeypatch.setattr("app.appointments.random.choice", choose_first)
+    response = _login(student_app, ids[1]).post("/student/appointments", data=data)
+
+    assert response.status_code == 303
+    assert choices_seen == [ids[3], third.id]
+    assert db.session.scalars(db.select(Appointment)).all()[-1].physio_id == ids[3]
+
+
+def test_any_physio_rejects_when_all_are_busy_without_disclosure(student_app, people):
+    ids, bed_id = people
+    _saved(people)
+    second = Appointment(
+        client_id=ids[1],
+        physio_id=ids[3],
+        start_time=datetime(2035, 1, 15, 10),
+        end_time=datetime(2035, 1, 15, 10, 30),
+        reason="Treatment",
+        status="confirmed",
+    )
+    db.session.add(second)
+    db.session.commit()
+    data = _form(people)
+    data.pop("physio_id")
+    data.pop(f"resource_{bed_id}")
+
+    response = _login(student_app, ids[0]).post("/student/appointments", data=data)
+
+    assert response.status_code == 409
+    error_message = response.text.split("|", 1)[0]
+    assert error_message == "No physiotherapist is available at this time."
+    assert "Physio" not in error_message
+    assert "Second" not in error_message
+    assert len(db.session.scalars(db.select(Appointment)).all()) == 2
+
+
+def test_selected_busy_physio_is_rejected_even_when_other_is_free(student_app, people):
+    ids, bed_id = people
+    _saved(people)
+    data = _form(people)
+    data.pop(f"resource_{bed_id}")
+
+    response = _login(student_app, ids[1]).post("/student/appointments", data=data)
+
+    assert response.status_code == 409
+    assert len(db.session.scalars(db.select(Appointment)).all()) == 1
 
 
 def test_cancel_keeps_history_and_releases_capacity(student_app, people):

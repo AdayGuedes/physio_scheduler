@@ -109,12 +109,15 @@ def _parse_booking_form():
                 raise BookingInputError(
                     "Enter whole-number equipment quantities."
                 ) from None
-    try:
-        physio_id = int(request.form.get("physio_id", ""))
-        if not 1 <= physio_id <= MAX_FORM_ID:
-            raise ValueError
-    except ValueError:
-        raise BookingInputError("Select a valid physiotherapist.") from None
+    raw_physio_id = request.form.get("physio_id", "").strip()
+    physio_id = None
+    if raw_physio_id:
+        try:
+            physio_id = int(raw_physio_id)
+            if not 1 <= physio_id <= MAX_FORM_ID:
+                raise ValueError
+        except ValueError:
+            raise BookingInputError("Select a valid physiotherapist.") from None
     try:
         if len(request.form.get("start_time", "")) > 64:
             raise ValueError
