@@ -80,11 +80,9 @@ def create_appointment(client_id, physio_id, start_time, reason, resources):
     if db.session.new or db.session.dirty or db.session.deleted:
         raise BookingTransactionError("Finish pending database changes before booking.")
     try:
-        if not isinstance(start_time, datetime):
-            raise BookingValidationError("Enter a valid start date and time.")
         try:
             end_time = start_time + APPOINTMENT_DURATION
-        except OverflowError:
+        except (TypeError, OverflowError):
             raise BookingValidationError("Enter a valid start date and time.") from None
         validate_availability_request(start_time, end_time, resources)
         if start_time <= datetime.now():  # noqa: DTZ005 (DB uses local naive times)
