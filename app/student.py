@@ -4,6 +4,7 @@ from flask import (
     Blueprint,
     abort,
     current_app,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -22,6 +23,7 @@ from app.appointments import (
 )
 from app.appointments import cancel_appointment as cancel_booking
 from app.appointments import create_appointment as book_appointment
+from app.availability import get_available_resources
 from app.extensions import db
 from app.models import Resource, User
 
@@ -80,6 +82,33 @@ def my_appointments():
         ["student/my_appointments.html", "student/appointments.html"],
         appointments=get_appointments_by_client(current_user.id),
         csrf_token=generate_csrf(),
+    )
+
+
+@student.get("/resources")
+@login_required
+def available_resources():
+    raw_start_time = request.args.get("start_time", "")
+    if (
+        len(request.args.getlist("start_time")) != 1
+        or len(raw_start_time) > 64
+        or "T" not in raw_start_time
+    ):
+        return jsonify(error="Enter a valid start date and time."), 400
+    try:
+        start_time = datetime.fromisoformat(raw_start_time)
+        if start_time.tzinfo is not None:
+            raise BookingInputError("Enter a local start date and time.")
+        if start_time <= datetime.now():  # noqa: DTZ005 (DB uses local naive times)
+            return jsonify(error="Appointments must start in the future."), 400
+        resources = get_available_resources(start_time)
+    except ValueError:
+        return jsonify(error="Enter a valid start date and time."), 400
+    except SQLAlchemyError:
+        current_app.logger.exception("Unable to list available resources")
+        return jsonify(error="Unable to load equipment. Please try again."), 503
+    return jsonify(
+        start_time=start_time.isoformat(timespec="minutes"), resources=resources
     )
 
 

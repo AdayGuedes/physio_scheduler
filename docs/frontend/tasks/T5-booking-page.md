@@ -52,3 +52,5 @@ Contracts: `contracts/student_new_appointment.md`. Template variables: `physios`
 - The reason options are the six in `decisions.md`, "Reasons for appointment". The stored value is the option
   text, so the existing short codes (`injury`, `pain`, and so on) are removed from the template.
 - The backend still accepts any text up to 500 characters, so the list is enforced only by the form.
+- T3 provides `GET /student/resources?start_time=YYYY-MM-DDTHH:MM` with `resources` entries containing
+  `id`, `name`, and `available`. Use `available` as each equipment input's maximum.

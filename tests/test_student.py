@@ -776,3 +776,161 @@ def test_cancellation_has_no_time_cutoff_for_confirmed_bookings(student_app, peo
     )
     assert response.status_code == 303
     assert db.session.get(Appointment, appointment_id).status == "cancelled_by_client"
+
+
+def test_available_resources_reports_free_units_for_entire_window(student_app, people):
+    ids, bed_id = people
+    shared = Resource(name="Heat pack", type="heat", total_quantity=3)
+    db.session.add(shared)
+    db.session.flush()
+    appointment = Appointment(
+        client_id=ids[0],
+        physio_id=ids[2],
+        start_time=datetime(2035, 1, 15, 10, 15),
+        end_time=datetime(2035, 1, 15, 10, 45),
+        reason="Treatment",
+        status="confirmed",
+    )
+    db.session.add(appointment)
+    db.session.flush()
+    db.session.add(
+        AppointmentResource(
+            appointment_id=appointment.id, resource_id=shared.id, quantity=2
+        )
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.status_code == 200
+    assert response.json == {
+        "start_time": "2035-01-15T10:00",
+        "resources": [
+            {"id": bed_id, "name": "Bed", "available": 1},
+            {"id": shared.id, "name": "Heat pack", "available": 1},
+        ],
+    }
+    assert "Treatment" not in response.text
+
+
+def test_available_resources_excludes_exhausted_equipment(student_app, people):
+    ids, bed_id = people
+    appointment = Appointment(
+        client_id=ids[0],
+        physio_id=ids[2],
+        start_time=datetime(2035, 1, 15, 10, 15),
+        end_time=datetime(2035, 1, 15, 10, 45),
+        reason="Treatment",
+        status="confirmed",
+    )
+    db.session.add(appointment)
+    db.session.flush()
+    db.session.add(
+        AppointmentResource(
+            appointment_id=appointment.id, resource_id=bed_id, quantity=1
+        )
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.status_code == 200
+    assert response.json == {"start_time": "2035-01-15T10:00", "resources": []}
+
+
+def test_available_resources_uses_peak_not_sum_of_sequential_bookings(
+    student_app, people
+):
+    ids, bed_id = people
+    db.session.get(Resource, bed_id).total_quantity = 2
+    for start, end in [
+        (datetime(2035, 1, 15, 10), datetime(2035, 1, 15, 10, 15)),
+        (datetime(2035, 1, 15, 10, 15), datetime(2035, 1, 15, 10, 30)),
+    ]:
+        appointment = Appointment(
+            client_id=ids[0],
+            physio_id=ids[2],
+            start_time=start,
+            end_time=end,
+            reason="Treatment",
+            status="confirmed",
+        )
+        db.session.add(appointment)
+        db.session.flush()
+        db.session.add(
+            AppointmentResource(
+                appointment_id=appointment.id, resource_id=bed_id, quantity=1
+            )
+        )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.json["resources"] == [{"id": bed_id, "name": "Bed", "available": 1}]
+
+
+@pytest.mark.parametrize("status", ["cancelled_by_client", "completed", "no_show"])
+def test_available_resources_ignores_non_confirmed_bookings(
+    student_app, people, status
+):
+    ids, bed_id = people
+    appointment = Appointment(
+        client_id=ids[0],
+        physio_id=ids[2],
+        start_time=datetime(2035, 1, 15, 10),
+        end_time=datetime(2035, 1, 15, 10, 30),
+        reason="Treatment",
+        status=status,
+    )
+    db.session.add(appointment)
+    db.session.flush()
+    db.session.add(
+        AppointmentResource(
+            appointment_id=appointment.id, resource_id=bed_id, quantity=1
+        )
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.json["resources"] == [{"id": bed_id, "name": "Bed", "available": 1}]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",
+        "?start_time=bad",
+        "?start_time=",
+        "?start_time=2035-01-15",
+        "?start_time=2000-01-15T10:00",
+        "?start_time=2035-01-15T10:00&start_time=2035-01-15T11:00",
+        "?start_time=2035-01-15T10:00%2B00:00",
+    ],
+)
+def test_available_resources_rejects_invalid_times(student_app, people, query):
+    response = _login(student_app, people[0][0]).get(f"/student/resources{query}")
+
+    assert response.status_code == 400
+    assert isinstance(response.json["error"], str)
+
+
+def test_available_resources_requires_client_login(student_app, people):
+    anonymous = student_app.test_client().get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+    physio = _login(student_app, people[0][2]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert anonymous.status_code == 302
+    assert "/auth/login" in anonymous.location
+    assert physio.status_code == 403
