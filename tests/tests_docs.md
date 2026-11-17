@@ -23,7 +23,7 @@ pytest tests/test_seed.py::test_seed_inventory_is_idempotent   # one test
 | `test_physio.py` | 79 | Physio routes, real templates, permissions, editing, notes, inventory and CSRF |
 | `test_physio_transactions.py` | 36 | Management service validation, agenda boundaries and concurrent writes |
 | `test_seed.py` | 19 | Inventory and dev-users seed functions, `flask seed-inventory` and `flask seed-dev-users` commands |
-| `test_security.py` | 150 | Real-factory CSRF, roles, sessions, account validation, limits, headers and safe errors |
+| `test_security.py` | 151 | Real-factory CSRF, roles, sessions, account validation, limits, headers and safe errors |
 | `test_student.py` | 78 | Student bookings, personal history, cancellation, permissions and concurrent writes |
 
 ## Shared fixture: `conftest.py`
@@ -1317,6 +1317,11 @@ signed test session without bypassing the real request permission checks.
 - **Action:** visit logout, submit without a token, then confirm with a valid token.
 - **Expected:** GET preserves login; invalid POST returns 400; valid POST clears the session.
 - **Why it can fail:** logout mutates through GET or does not require CSRF.
+
+#### `test_session_uses_current_database_role_after_role_change`
+- **Action:** access the calendar as a physio, change that account to a client in the database, then request the calendar again using the same session.
+- **Expected:** the first request succeeds and the second returns 403.
+- **Why it can fail:** authorization trusts a role cached in the browser session instead of checking the current account.
 
 #### `test_auth_rejects_duplicate_fields` (4 cases)
 - **Action:** repeat an email, password, name or CSRF field.
