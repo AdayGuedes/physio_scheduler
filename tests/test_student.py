@@ -227,7 +227,7 @@ def test_booking_service_rejects_start_that_overflows_the_end(student_app, peopl
 
 def test_booking_service_rejects_non_datetime_start(student_app, people):
     ids, _ = people
-    with pytest.raises(ValueError, match="valid start"):
+    with pytest.raises(BookingValidationError, match="valid start"):
         create_appointment(ids[0], ids[2], "2035-01-15T10:00", "Treatment", {})
     assert db.session.scalar(db.select(Appointment)) is None
 
