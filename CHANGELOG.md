@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-9] Add a protected FullCalendar event feed with date filters and API documentation
 - [PS-12] Complete shared base layout, role-based navigation and styling
 - [PS-11] Complete backend regression coverage for auth, bookings, roles and API
+- [NO-REF] Add frontend decisions, contracts, task specs and implementation skill for booking
 
 ### Changed
 
