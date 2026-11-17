@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-28] Validate client and physio roles when appointments are inserted or updated
 - [PS-11] Complete backend regression coverage for auth, bookings, roles and API
 - [NO-REF] Add frontend decisions, contracts, task specs and implementation skill for booking
+- [PS-30] Add student free start times for a chosen or any available physio
 
 ### Changed
 

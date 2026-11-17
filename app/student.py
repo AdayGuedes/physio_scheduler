@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import (
     Blueprint,
     abort,
     current_app,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -22,6 +23,7 @@ from app.appointments import (
 )
 from app.appointments import cancel_appointment as cancel_booking
 from app.appointments import create_appointment as book_appointment
+from app.availability import AvailabilityValidationError, get_free_start_times
 from app.extensions import db
 from app.models import Resource, User
 
@@ -80,6 +82,43 @@ def my_appointments():
         ["student/my_appointments.html", "student/appointments.html"],
         appointments=get_appointments_by_client(current_user.id),
         csrf_token=generate_csrf(),
+    )
+
+
+@student.get("/free-times")
+@login_required
+def free_times():
+    raw_dates = request.args.getlist("date")
+    if len(raw_dates) != 1:
+        return jsonify(error="Enter a valid date."), 400
+    try:
+        requested_date = date.fromisoformat(raw_dates[0])
+        if requested_date.isoformat() != raw_dates[0]:
+            raise ValueError
+    except ValueError:
+        return jsonify(error="Enter a valid date."), 400
+
+    raw_physio_ids = request.args.getlist("physio_id")
+    if len(raw_physio_ids) > 1:
+        return jsonify(error="Select a valid physiotherapist."), 400
+    physio_id = None
+    if raw_physio_ids and raw_physio_ids[0] != "":
+        try:
+            physio_id = int(raw_physio_ids[0])
+            if not 1 <= physio_id <= MAX_FORM_ID:
+                raise ValueError
+        except ValueError:
+            return jsonify(error="Select a valid physiotherapist."), 400
+
+    try:
+        start_times = get_free_start_times(requested_date, physio_id)
+    except AvailabilityValidationError as error:
+        return jsonify(error=str(error)), 400
+    return jsonify(
+        date=requested_date.isoformat(),
+        start_times=[
+            start_time.isoformat(timespec="minutes") for start_time in start_times
+        ],
     )
 
 

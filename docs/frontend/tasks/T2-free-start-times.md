@@ -57,3 +57,16 @@ No physio ids or names appear in the response.
 - T1 is done: `APPOINTMENT_DURATION` already exists in `app/appointments.py`. Import it, do not redefine it.
 - The response is read-only. Two students can get the same start time in the list; the POST (T4) is what
   enforces the real booking, so the list is advisory.
+
+## Implementation notes
+
+- `app/appointments.py` defines `CLINIC_FIRST_START_TIME` and `CLINIC_LAST_START_TIME` beside
+  `APPOINTMENT_DURATION`.
+- `app/availability.py` adds `get_free_start_times(date, physio_id=None)`. It imports the grid constants
+  inside the function because `app/appointments.py` already imports availability checks.
+- `app/student.py` adds `student.free_times` at `GET /student/free-times`. It accepts `date=YYYY-MM-DD` and an
+  optional `physio_id`, returning only `date` and `start_times` in JSON.
+- `tests/test_student.py` covers free-slot unions, selected physios, cancellations, past times, validation,
+  empty days, and access control. `CHANGELOG.md` records the change.
+- No deviation from the objective, acceptance criteria, or constraints. T5 can fetch this endpoint to fill
+  the start-time dropdown; the list is advisory until T4 enforces the final booking.

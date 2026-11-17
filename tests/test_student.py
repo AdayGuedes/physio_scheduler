@@ -159,6 +159,174 @@ def test_legacy_new_form_url_still_loads(student_app, people):
     )
 
 
+def test_free_times_union_does_not_reveal_physio_identity(student_app, people):
+    ids, _ = people
+    db.session.add_all(
+        [
+            Appointment(
+                client_id=ids[0],
+                physio_id=ids[2],
+                start_time=datetime(2035, 1, 15, 10),
+                end_time=datetime(2035, 1, 15, 10, 30),
+                reason="Visit",
+                status="confirmed",
+            ),
+            Appointment(
+                client_id=ids[1],
+                physio_id=ids[3],
+                start_time=datetime(2035, 1, 15, 10, 30),
+                end_time=datetime(2035, 1, 15, 11),
+                reason="Visit",
+                status="confirmed",
+            ),
+            Appointment(
+                client_id=ids[0],
+                physio_id=ids[2],
+                start_time=datetime(2035, 1, 15, 11),
+                end_time=datetime(2035, 1, 15, 11, 30),
+                reason="Visit",
+                status="confirmed",
+            ),
+            Appointment(
+                client_id=ids[1],
+                physio_id=ids[3],
+                start_time=datetime(2035, 1, 15, 11),
+                end_time=datetime(2035, 1, 15, 11, 30),
+                reason="Visit",
+                status="confirmed",
+            ),
+        ]
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[0]).get("/student/free-times?date=2035-01-15")
+
+    assert response.status_code == 200
+    assert response.json["date"] == "2035-01-15"
+    assert "2035-01-15T10:00" in response.json["start_times"]
+    assert "2035-01-15T10:30" in response.json["start_times"]
+    assert "2035-01-15T11:00" not in response.json["start_times"]
+    assert response.json["start_times"][0] == "2035-01-15T08:00"
+    assert response.json["start_times"][-1] == "2035-01-15T18:00"
+    assert len(response.json["start_times"]) == 20
+    assert set(response.json) == {"date", "start_times"}
+
+
+def test_free_times_for_selected_physio_excludes_confirmed_overlap(student_app, people):
+    ids, _ = people
+    _saved(people)
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[2]}"
+    )
+    assert response.status_code == 200
+    assert "2035-01-15T10:00" not in response.json["start_times"]
+    assert "2035-01-15T10:30" not in response.json["start_times"]
+    assert "2035-01-15T11:00" in response.json["start_times"]
+
+
+def test_cancelled_appointment_does_not_block_free_times(student_app, people):
+    ids, _ = people
+    _saved(people, status="cancelled_by_client")
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[2]}"
+    )
+    assert response.status_code == 200
+    assert "2035-01-15T10:00" in response.json["start_times"]
+
+
+def test_free_times_excludes_past_starts_today(student_app, people, monkeypatch):
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls):
+            return cls(2035, 1, 15, 10, 15)
+
+    monkeypatch.setattr("app.availability.datetime", FixedDatetime)
+    response = _login(student_app, people[0][0]).get(
+        "/student/free-times?date=2035-01-15"
+    )
+    assert response.status_code == 200
+    assert "2035-01-15T10:00" not in response.json["start_times"]
+    assert "2035-01-15T10:30" in response.json["start_times"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",
+        "?date=bad",
+        "?date=2035-02-30",
+        "?date=20350115",
+        "?date=2035-01-15&date=2035-01-16",
+    ],
+)
+def test_free_times_rejects_missing_or_malformed_date(student_app, people, query):
+    response = _login(student_app, people[0][0]).get(f"/student/free-times{query}")
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+@pytest.mark.parametrize("physio_id", ["nope", "0", "99999"])
+def test_free_times_rejects_invalid_physio_id(student_app, people, physio_id):
+    response = _login(student_app, people[0][0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={physio_id}"
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+def test_free_times_rejects_client_as_physio(student_app, people):
+    ids, _ = people
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[1]}"
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+def test_free_times_returns_empty_list_without_physios(student_app):
+    client = User(
+        name="Client",
+        email="client@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.commit()
+    response = _login(student_app, client.id).get("/student/free-times?date=2035-01-15")
+    assert response.status_code == 200
+    assert response.json == {"date": "2035-01-15", "start_times": []}
+
+
+def test_free_times_returns_empty_list_when_selected_physio_is_busy_all_day(
+    student_app, people
+):
+    ids, _ = people
+    db.session.add(
+        Appointment(
+            client_id=ids[0],
+            physio_id=ids[2],
+            start_time=datetime(2035, 1, 15, 8),
+            end_time=datetime(2035, 1, 15, 18, 30),
+            reason="Visit",
+            status="confirmed",
+        )
+    )
+    db.session.commit()
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[2]}"
+    )
+    assert response.status_code == 200
+    assert response.json == {"date": "2035-01-15", "start_times": []}
+
+
+def test_free_times_access_follows_student_permissions(student_app, people):
+    path = "/student/free-times?date=2035-01-15"
+    response = student_app.test_client().get(path)
+    assert response.status_code == 302
+    assert "/auth/login" in response.location
+    assert _login(student_app, people[0][2]).get(path).status_code == 403
+
+
 def test_create_persists_booking_and_resources_using_session_owner(student_app, people):
     client = _login(student_app, people[0][0])
     data = _form(people)

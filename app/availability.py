@@ -6,6 +6,39 @@ from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
 
+def get_free_start_times(date, physio_id=None):
+    from app.appointments import (
+        APPOINTMENT_DURATION,
+        CLINIC_FIRST_START_TIME,
+        CLINIC_LAST_START_TIME,
+    )
+
+    if physio_id is None:
+        physio_ids = db.session.scalars(
+            db.select(User.id).where(User.role == "physio").order_by(User.id)
+        ).all()
+    else:
+        physio = db.session.get(User, physio_id)
+        if physio is None or physio.role != "physio":
+            raise AvailabilityValidationError("Select a valid physiotherapist.")
+        physio_ids = [physio_id]
+
+    current_time = datetime.now()  # noqa: DTZ005 (DB uses local naive times)
+    start_time = datetime.combine(date, CLINIC_FIRST_START_TIME)
+    last_start_time = datetime.combine(date, CLINIC_LAST_START_TIME)
+    free_times = []
+    while start_time <= last_start_time:
+        if start_time > current_time and any(
+            check_availability(
+                start_time, start_time + APPOINTMENT_DURATION, {}, candidate_physio_id
+            )["available"]
+            for candidate_physio_id in physio_ids
+        ):
+            free_times.append(start_time)
+        start_time += APPOINTMENT_DURATION
+    return free_times
+
+
 class AvailabilityValidationError(ValueError):
     """Expected invalid scheduling input, distinct from programming errors."""
 
