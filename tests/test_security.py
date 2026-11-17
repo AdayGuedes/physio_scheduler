@@ -112,6 +112,21 @@ def _as_user(app, user_id):
     return client
 
 
+def test_session_uses_current_database_role_after_role_change(security_app, people):
+    user_ids, _, _ = people
+    client = _as_user(security_app, user_ids[2])
+    events_url = "/api/events?start=2035-01-15&end=2035-01-16"
+
+    assert client.get(events_url).status_code == 200
+
+    with security_app.app_context():
+        user = db.session.get(User, user_ids[2])
+        user.role = "client"
+        db.session.commit()
+
+    assert client.get(events_url).status_code == 403
+
+
 @pytest.mark.parametrize("path", ["/auth/login", "/auth/register"])
 @pytest.mark.parametrize("token", [None, "invalid-token"])
 def test_auth_posts_require_csrf(security_app, people, path, token):
