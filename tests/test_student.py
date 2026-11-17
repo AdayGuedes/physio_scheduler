@@ -232,6 +232,37 @@ def test_booking_service_rejects_non_datetime_start(student_app, people):
     assert db.session.scalar(db.select(Appointment)) is None
 
 
+def test_back_to_back_bookings_with_the_same_physio_do_not_conflict(
+    student_app, people
+):
+    client = _login(student_app, people[0][0])
+    for start in ("2035-01-15T10:00", "2035-01-15T10:30"):
+        data = _form(people)
+        data.pop(f"resource_{people[1]}")
+        data["start_time"] = start
+        assert client.post("/student/appointments", data=data).status_code == 303
+    appointments = db.session.scalars(
+        db.select(Appointment).order_by(Appointment.start_time)
+    ).all()
+    assert [a.end_time for a in appointments] == [
+        datetime(2035, 1, 15, 10, 30),
+        datetime(2035, 1, 15, 11),
+    ]
+
+
+@pytest.mark.parametrize("second_start", ["2035-01-15T09:45", "2035-01-15T10:15"])
+def test_overlapping_start_within_the_30_minute_window_conflicts(
+    student_app, people, second_start
+):
+    client = _login(student_app, people[0][0])
+    data = _form(people)
+    data.pop(f"resource_{people[1]}")
+    assert client.post("/student/appointments", data=data).status_code == 303
+    data["start_time"] = second_start
+    assert client.post("/student/appointments", data=data).status_code == 409
+    assert len(db.session.scalars(db.select(Appointment)).all()) == 1
+
+
 def test_create_without_equipment(student_app, people):
     data = _form(people)
     data.pop(f"resource_{people[1]}")
