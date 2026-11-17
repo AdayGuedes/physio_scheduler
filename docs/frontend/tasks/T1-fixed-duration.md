@@ -49,3 +49,36 @@ that the end is computed.
   for this task.
 - `tests/test_student.py` posts `end_time` in its booking helpers. Update those helpers, not the
   assertions about what is saved.
+
+## Implementation notes
+
+Status: Done. Every acceptance item is met.
+
+Files and functions changed:
+
+- `app/appointments.py`: added `APPOINTMENT_DURATION = timedelta(minutes=30)`. `create_appointment` is now
+  `create_appointment(client_id, physio_id, start_time, reason, resources)` and computes
+  `end_time = start_time + APPOINTMENT_DURATION`.
+- `app/student.py`: `_parse_booking_form` no longer reads `end_time` and returns
+  `(physio_id, start_time, reason, resources)`. `_booking_form` no longer sends `reason_max_length` and
+  no longer keeps `end_time` in `form_data`. The `create_appointment` route follows the new signature.
+- `tests/test_student.py`, `tests/test_security.py`, `tests/test_physio_transactions.py`: removed
+  `end_time` from booking helpers, parameter lists and `create_appointment` calls. Added tests for the
+  computed end and for a submitted `end_time` being ignored.
+- `docs/student_appointments.md`: removed the `end_time` row, documented the computed end and the new
+  function signature, and dropped `reason_max_length` from the frontend handoff.
+
+Deviations:
+
+- `create_appointment` now rejects a non-datetime `start_time` with `BookingValidationError`. Before, that
+  check lived in `validate_availability_request`, which needs `end_time` and cannot run first now.
+- The generic 400 message in `create_appointment` no longer mentions "the end after the start", because the
+  end is no longer submitted.
+- A submitted `end_time` is not read at all, so duplicate or malformed `end_time` fields are ignored
+  instead of returning 400. The duplicate-field tests no longer include `end_time`.
+
+For the next tasks:
+
+- T2 and T4 can import `APPOINTMENT_DURATION` from `app/appointments.py`.
+- T4 builds on the new `create_appointment` and `_parse_booking_form` signatures.
+- Contract `student_new_appointment.md`: the blocking dependency on the `end_time` removal is now done.

@@ -281,7 +281,6 @@ def test_concurrent_management_writes_are_serialized(
                         ids[1],
                         ids[2] if scenario == "reschedule_physio" else ids[3],
                         datetime(2035, 1, 15, 10),
-                        datetime(2035, 1, 15, 11),
                         "Competing booking",
                         (
                             {}

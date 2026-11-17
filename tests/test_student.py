@@ -12,8 +12,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.datastructures import MultiDict
 
 from app.appointments import (
+    APPOINTMENT_DURATION,
     AvailabilityError,
     BookingTransactionError,
+    BookingValidationError,
     create_appointment,
 )
 from app.auth import auth
@@ -70,7 +72,6 @@ def _form(people):
     return {
         "physio_id": str(ids[2]),
         "start_time": "2035-01-15T10:00",
-        "end_time": "2035-01-15T11:00",
         "reason": "  Knee treatment  ",
         f"resource_{bed_id}": "1",
     }
@@ -179,6 +180,89 @@ def test_create_persists_booking_and_resources_using_session_owner(student_app, 
     assert resource.quantity == 1
 
 
+def test_create_without_end_time_computes_the_end(student_app, people):
+    data = _form(people)
+    assert "end_time" not in data
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments", data=data
+    )
+    assert response.status_code == 303
+    appointment = db.session.scalar(db.select(Appointment))
+    assert appointment.start_time == datetime(2035, 1, 15, 10)
+    assert appointment.end_time == datetime(2035, 1, 15, 10, 30)
+    assert appointment.end_time == appointment.start_time + APPOINTMENT_DURATION
+
+
+@pytest.mark.parametrize(
+    "submitted_end", ["2035-01-15T18:00", "2035-01-15T09:00", "not-a-date"]
+)
+def test_submitted_end_time_is_ignored(student_app, people, submitted_end):
+    data = _form(people)
+    data["end_time"] = submitted_end
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments", data=data
+    )
+    assert response.status_code == 303
+    appointment = db.session.scalar(db.select(Appointment))
+    assert appointment.end_time == datetime(2035, 1, 15, 10, 30)
+
+
+def test_start_too_late_to_compute_the_end_is_a_validation_error(student_app, people):
+    data = _form(people)
+    data["start_time"] = "9999-12-31T23:45"
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments", data=data
+    )
+    assert response.status_code == 400
+    assert "Enter a valid start date and time." in response.text
+    assert db.session.scalar(db.select(Appointment)) is None
+
+
+def test_booking_service_rejects_start_that_overflows_the_end(student_app, people):
+    ids, _ = people
+    with pytest.raises(BookingValidationError, match="valid start"):
+        create_appointment(ids[0], ids[2], datetime(9999, 12, 31, 23, 45), "T", {})
+    assert db.session.scalar(db.select(Appointment)) is None
+
+
+def test_booking_service_rejects_non_datetime_start(student_app, people):
+    ids, _ = people
+    with pytest.raises(BookingValidationError, match="valid start"):
+        create_appointment(ids[0], ids[2], "2035-01-15T10:00", "Treatment", {})
+    assert db.session.scalar(db.select(Appointment)) is None
+
+
+def test_back_to_back_bookings_with_the_same_physio_do_not_conflict(
+    student_app, people
+):
+    client = _login(student_app, people[0][0])
+    for start in ("2035-01-15T10:00", "2035-01-15T10:30"):
+        data = _form(people)
+        data.pop(f"resource_{people[1]}")
+        data["start_time"] = start
+        assert client.post("/student/appointments", data=data).status_code == 303
+    appointments = db.session.scalars(
+        db.select(Appointment).order_by(Appointment.start_time)
+    ).all()
+    assert [a.end_time for a in appointments] == [
+        datetime(2035, 1, 15, 10, 30),
+        datetime(2035, 1, 15, 11),
+    ]
+
+
+@pytest.mark.parametrize("second_start", ["2035-01-15T09:45", "2035-01-15T10:15"])
+def test_overlapping_start_within_the_30_minute_window_conflicts(
+    student_app, people, second_start
+):
+    client = _login(student_app, people[0][0])
+    data = _form(people)
+    data.pop(f"resource_{people[1]}")
+    assert client.post("/student/appointments", data=data).status_code == 303
+    data["start_time"] = second_start
+    assert client.post("/student/appointments", data=data).status_code == 409
+    assert len(db.session.scalars(db.select(Appointment)).all()) == 1
+
+
 def test_create_without_equipment(student_app, people):
     data = _form(people)
     data.pop(f"resource_{people[1]}")
@@ -200,8 +284,6 @@ def test_create_without_equipment(student_app, people):
         ("start_time", "wrong"),
         ("start_time", "2000-01-15T10:00"),
         ("start_time", "2035-01-15T10:00+00:00"),
-        ("end_time", "2035-01-15T10:00"),
-        ("end_time", "2035-01-15T09:00"),
         ("reason", "   "),
         ("resource_1", "-1"),
         ("resource_1", "1.5"),
@@ -404,7 +486,6 @@ def test_concurrent_bookings_cannot_double_reserve(
                     ids[index],
                     ids[2] if shared_physio else ids[index + 2],
                     datetime(2035, 1, 15, 10),
-                    datetime(2035, 1, 15, 11),
                     "Treatment",
                     {} if shared_physio else {bed_id: 1},
                 )
@@ -477,7 +558,6 @@ def test_booking_service_rejects_invalid_users(student_app, people, field, value
             client_id,
             physio_id,
             datetime(2035, 1, 15, 10),
-            datetime(2035, 1, 15, 11),
             "Treatment",
             {},
         )
@@ -490,7 +570,6 @@ def test_booking_service_rejects_physio_as_client(student_app, people):
             people[0][2],
             people[0][3],
             datetime(2035, 1, 15, 10),
-            datetime(2035, 1, 15, 11),
             "Treatment",
             {},
         )
@@ -534,7 +613,6 @@ def test_existing_templates_and_login_redirect_still_work(student_app, people):
     [
         ("physio_id", "Select a valid physiotherapist."),
         ("start_time", "Enter a valid start date and time."),
-        ("end_time", "Enter a valid end date and time."),
         ("resource_1", "Enter whole-number equipment quantities."),
         ("resource_wrong", "Select valid equipment."),
     ],
@@ -563,7 +641,7 @@ def test_failed_booking_preserves_submitted_values(student_app, people, conflict
     if conflict:
         _saved(people)
     else:
-        data["end_time"] = "invalid"
+        data["start_time"] = "invalid"
     data["client_id"] = str(people[0][1])
     data["csrf_token"] = "do-not-echo"
     template_rendered.connect(record_template, student_app)
@@ -577,7 +655,7 @@ def test_failed_booking_preserves_submitted_values(student_app, people, conflict
         for key, value in data.items()
         if key not in {"client_id", "csrf_token"}
     }
-    assert contexts[-1]["reason_max_length"] == 500
+    assert "reason_max_length" not in contexts[-1]
 
 
 @pytest.mark.parametrize("length,status", [(500, 303), (501, 400)])
@@ -616,7 +694,6 @@ def test_booking_rejects_pending_changes_without_discarding_them(
             ids[0],
             ids[2],
             datetime(2035, 1, 15, 10),
-            datetime(2035, 1, 15, 11),
             "Treatment",
             {},
         )
@@ -637,7 +714,6 @@ def test_booking_works_with_existing_modern_read_transaction(student_app, people
             people[0][0],
             people[0][2],
             datetime(2035, 1, 15, 10),
-            datetime(2035, 1, 15, 11),
             "Treatment",
             {},
         )
@@ -661,7 +737,6 @@ def test_booking_rejects_sqlite_autocommit(student_app, people):
                 people[0][0],
                 people[0][2],
                 datetime(2035, 1, 15, 10),
-                datetime(2035, 1, 15, 11),
                 "Treatment",
                 {},
             )

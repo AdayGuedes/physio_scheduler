@@ -261,9 +261,7 @@ def test_auth_rejects_duplicate_fields(security_app, field):
     assert client.post("/auth/register", data=data).status_code == 400
 
 
-@pytest.mark.parametrize(
-    "field", ["physio_id", "start_time", "end_time", "reason", "csrf_token"]
-)
+@pytest.mark.parametrize("field", ["physio_id", "start_time", "reason", "csrf_token"])
 def test_booking_rejects_duplicate_core_fields(security_app, people, field):
     client = _as_user(security_app, people[0][0])
     token = _token(client)
@@ -271,7 +269,6 @@ def test_booking_rejects_duplicate_core_fields(security_app, people, field):
         {
             "physio_id": str(people[0][2]),
             "start_time": "2035-01-16T10:00",
-            "end_time": "2035-01-16T11:00",
             "reason": "Treatment",
             "csrf_token": token,
         }
@@ -795,7 +792,6 @@ def test_booking_ids_cannot_overflow_database(security_app, people, field, value
         "csrf_token": token,
         "physio_id": str(people[0][2]),
         "start_time": "2035-01-16T10:00",
-        "end_time": "2035-01-16T11:00",
         "reason": "Treatment",
         field: value,
     }
@@ -1026,7 +1022,7 @@ def test_standalone_auth_fields_reject_duplicates(security_app):
         import_module("app.auth")._auth_field("email")
 
 
-@pytest.mark.parametrize("field", ["physio_id", "start_time", "end_time", "reason"])
+@pytest.mark.parametrize("field", ["physio_id", "start_time", "reason"])
 def test_standalone_booking_parser_rejects_duplicates(security_app, field):
     with (
         security_app.test_request_context(

@@ -48,6 +48,9 @@ Contracts: `contracts/student_new_appointment.md`, `physio_id` field.
 
 ## Notes
 
+- T1 is done: `create_appointment(client_id, physio_id, start_time, reason, resources)` no longer takes
+  `end_time`, and `_parse_booking_form` returns `(physio_id, start_time, reason, resources)`. Build on
+  those signatures; the line numbers in the objective are from before T1.
 - Randomness should be easy to fix in tests, for example by calling `random.choice` through a module-level
   reference that tests can patch.
 - The error for "no physio free" should use the existing `physio_busy` reason, without exposing which physios
