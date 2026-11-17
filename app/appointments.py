@@ -82,7 +82,10 @@ def create_appointment(client_id, physio_id, start_time, reason, resources):
     try:
         if not isinstance(start_time, datetime):
             raise BookingValidationError("Enter a valid start date and time.")
-        end_time = start_time + APPOINTMENT_DURATION
+        try:
+            end_time = start_time + APPOINTMENT_DURATION
+        except OverflowError:
+            raise BookingValidationError("Enter a valid start date and time.") from None
         validate_availability_request(start_time, end_time, resources)
         if start_time <= datetime.now():  # noqa: DTZ005 (DB uses local naive times)
             raise BookingValidationError("Appointments must start in the future.")

@@ -15,6 +15,7 @@ from app.appointments import (
     APPOINTMENT_DURATION,
     AvailabilityError,
     BookingTransactionError,
+    BookingValidationError,
     create_appointment,
 )
 from app.auth import auth
@@ -204,6 +205,24 @@ def test_submitted_end_time_is_ignored(student_app, people, submitted_end):
     assert response.status_code == 303
     appointment = db.session.scalar(db.select(Appointment))
     assert appointment.end_time == datetime(2035, 1, 15, 10, 30)
+
+
+def test_start_too_late_to_compute_the_end_is_a_validation_error(student_app, people):
+    data = _form(people)
+    data["start_time"] = "9999-12-31T23:45"
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments", data=data
+    )
+    assert response.status_code == 400
+    assert "Enter a valid start date and time." in response.text
+    assert db.session.scalar(db.select(Appointment)) is None
+
+
+def test_booking_service_rejects_start_that_overflows_the_end(student_app, people):
+    ids, _ = people
+    with pytest.raises(BookingValidationError, match="valid start"):
+        create_appointment(ids[0], ids[2], datetime(9999, 12, 31, 23, 45), "T", {})
+    assert db.session.scalar(db.select(Appointment)) is None
 
 
 def test_booking_service_rejects_non_datetime_start(student_app, people):
