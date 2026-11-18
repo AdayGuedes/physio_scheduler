@@ -8,6 +8,7 @@ from threading import Barrier
 import pytest
 from flask import Flask, g, template_rendered, url_for
 from jinja2 import DictLoader
+from sqlalchemy import event
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.datastructures import MultiDict
 
@@ -19,6 +20,7 @@ from app.appointments import (
     create_appointment,
 )
 from app.auth import auth
+from app.availability import get_free_start_times
 from app.extensions import db, login_manager
 from app.models import Appointment, AppointmentResource, Resource, User
 from app.student import student
@@ -222,6 +224,49 @@ def test_free_times_for_selected_physio_excludes_confirmed_overlap(student_app, 
     assert "2035-01-15T10:00" not in response.json["start_times"]
     assert "2035-01-15T10:30" not in response.json["start_times"]
     assert "2035-01-15T11:00" in response.json["start_times"]
+
+
+def test_free_times_for_selected_physio_ignores_other_physio_and_includes_last_start(
+    student_app, people
+):
+    ids, _ = people
+    db.session.add(
+        Appointment(
+            client_id=ids[0],
+            physio_id=ids[3],
+            start_time=datetime(2035, 1, 15, 18),
+            end_time=datetime(2035, 1, 15, 18, 30),
+            reason="Visit",
+            status="confirmed",
+        )
+    )
+    db.session.commit()
+
+    client = _login(student_app, ids[0])
+    first = client.get(f"/student/free-times?date=2035-01-15&physio_id={ids[2]}")
+    second = client.get(f"/student/free-times?date=2035-01-15&physio_id={ids[3]}")
+
+    assert "2035-01-15T18:00" in first.json["start_times"]
+    assert "2035-01-15T18:00" not in second.json["start_times"]
+
+
+def test_free_times_loads_confirmed_appointments_once(student_app, people):
+    appointment_selects = []
+
+    def count_appointment_select(
+        _connection, _cursor, statement, _params, _context, _many
+    ):
+        if "FROM appointments" in statement:
+            appointment_selects.append(statement)
+
+    event.listen(db.engine, "before_cursor_execute", count_appointment_select)
+    try:
+        start_times = get_free_start_times(datetime(2035, 1, 15).date())
+    finally:
+        event.remove(db.engine, "before_cursor_execute", count_appointment_select)
+
+    assert len(start_times) == 21
+    assert len(appointment_selects) == 1
 
 
 def test_cancelled_appointment_does_not_block_free_times(student_app, people):

@@ -1,18 +1,16 @@
 """Availability checks for appointment times and shared equipment."""
 
-from datetime import datetime
+from datetime import datetime, time, timedelta
 
 from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
+APPOINTMENT_DURATION = timedelta(minutes=30)
+CLINIC_FIRST_START_TIME = time(8)
+CLINIC_LAST_START_TIME = time(18)
+
 
 def get_free_start_times(date, physio_id=None):
-    from app.appointments import (
-        APPOINTMENT_DURATION,
-        CLINIC_FIRST_START_TIME,
-        CLINIC_LAST_START_TIME,
-    )
-
     if physio_id is None:
         physio_ids = db.session.scalars(
             db.select(User.id).where(User.role == "physio").order_by(User.id)
@@ -26,12 +24,28 @@ def get_free_start_times(date, physio_id=None):
     current_time = datetime.now()  # noqa: DTZ005 (DB uses local naive times)
     start_time = datetime.combine(date, CLINIC_FIRST_START_TIME)
     last_start_time = datetime.combine(date, CLINIC_LAST_START_TIME)
+    bookings = db.session.execute(
+        db.select(
+            Appointment.physio_id, Appointment.start_time, Appointment.end_time
+        ).where(
+            Appointment.physio_id.in_(physio_ids),
+            Appointment.status == "confirmed",
+            Appointment.start_time < last_start_time + APPOINTMENT_DURATION,
+            Appointment.end_time > start_time,
+        )
+    ).all()
+    busy_by_physio = {candidate_physio_id: [] for candidate_physio_id in physio_ids}
+    for booked_physio_id, booked_start, booked_end in bookings:
+        busy_by_physio[booked_physio_id].append((booked_start, booked_end))
+
     free_times = []
     while start_time <= last_start_time:
         if start_time > current_time and any(
-            check_availability(
-                start_time, start_time + APPOINTMENT_DURATION, {}, candidate_physio_id
-            )["available"]
+            all(
+                booked_start >= start_time + APPOINTMENT_DURATION
+                or booked_end <= start_time
+                for booked_start, booked_end in busy_by_physio[candidate_physio_id]
+            )
             for candidate_physio_id in physio_ids
         ):
             free_times.append(start_time)
