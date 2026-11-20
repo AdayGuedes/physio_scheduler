@@ -1,4 +1,3 @@
-
 from datetime import datetime
 
 from flask import (
@@ -11,13 +10,11 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
-from flask_wtf.csrf import generate_csrf, validate_csrf
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy.exc import SQLAlchemyError
-from wtforms.validators import ValidationError
 
 from app.appointments import (
     REASON_MAX_LENGTH,
-    SPORT_OPTIONS,
     AvailabilityError,
     BookingTransactionError,
     BookingValidationError,
@@ -27,6 +24,8 @@ from app.appointments import cancel_appointment as cancel_booking
 from app.appointments import create_appointment as book_appointment
 from app.extensions import db
 from app.models import Resource, User
+
+MAX_FORM_ID = 2147483647
 
 student = Blueprint("student", __name__, url_prefix="/student")
 student.add_url_rule("/appointments", endpoint="appointments", build_only=True)
@@ -42,21 +41,11 @@ def check_student_role():
         abort(403)
 
 
-def _check_csrf():
-    if not current_app.config.get("WTF_CSRF_ENABLED", True):
-        return
-    try:
-        validate_csrf(request.form.get("csrf_token"))
-    except ValidationError:
-        abort(400, description="Invalid or missing CSRF token.")
-
-
 def _booking_form(errors=None, status=200):
     form_data = {
         key: request.form[key]
         for key in request.form
-        if key in {"physio_id", "start_time", "end_time", "reason", "sport"}
-        or key.startswith("resource_")
+        if key in {"physio_id", "start_time", "reason"} or key.startswith("resource_")
     }
     return (
         render_template(
@@ -72,7 +61,6 @@ def _booking_form(errors=None, status=200):
             errors=errors or [],
             csrf_token=generate_csrf(),
             form_data=form_data,
-            reason_max_length=REASON_MAX_LENGTH,
         ),
         status,
     )
@@ -96,6 +84,9 @@ def my_appointments():
 
 
 def _parse_booking_form():
+    for field in ("physio_id", "start_time", "reason"):
+        if len(request.form.getlist(field)) > 1:
+            raise BookingInputError("Submit each field only once.")
     resources = {}
     for key in request.form:
         if key.startswith("resource_"):
@@ -103,6 +94,8 @@ def _parse_booking_form():
                 raise BookingInputError("Submit each equipment quantity only once.")
             try:
                 resource_id = int(key.removeprefix("resource_"))
+                if not 1 <= resource_id <= MAX_FORM_ID:
+                    raise ValueError
             except ValueError:
                 raise BookingInputError("Select valid equipment.") from None
             raw_quantity = request.form[key].strip()
@@ -116,61 +109,32 @@ def _parse_booking_form():
                 raise BookingInputError(
                     "Enter whole-number equipment quantities."
                 ) from None
-
     try:
         physio_id = int(request.form.get("physio_id", ""))
+        if not 1 <= physio_id <= MAX_FORM_ID:
+            raise ValueError
     except ValueError:
         raise BookingInputError("Select a valid physiotherapist.") from None
-
-    dates = []
-    for field, label in [("start_time", "start"), ("end_time", "end")]:
-        try:
-            dates.append(datetime.fromisoformat(request.form.get(field, "")))
-        except ValueError:
-            raise BookingInputError(
-                f"Enter a valid {label} date and time."
-            ) from None
-
-    sport = request.form.get("sport", "").strip()
-
-    if sport and sport not in SPORT_OPTIONS:
-        raise BookingInputError("Select a valid sport.")
-
-    sport = sport or None
-
+    try:
+        if len(request.form.get("start_time", "")) > 64:
+            raise ValueError
+        start_time = datetime.fromisoformat(request.form.get("start_time", ""))
+    except ValueError:
+        raise BookingInputError("Enter a valid start date and time.") from None
     return (
         physio_id,
-        dates[0],
-        dates[1],
+        start_time,
         request.form.get("reason", ""),
         resources,
-        sport,
     )
 
 
 @student.post("/appointments")
 @login_required
 def create_appointment():
-    _check_csrf()
     try:
-        (
-            physio_id,
-            start_time,
-            end_time,
-            reason,
-            resources,
-            sport,
-        ) = _parse_booking_form()
-
-        book_appointment(
-            current_user.id,
-            physio_id,
-            start_time,
-            end_time,
-            reason,
-            resources,
-            sport=sport,
-        )
+        physio_id, start_time, reason, resources = _parse_booking_form()
+        book_appointment(current_user.id, physio_id, start_time, reason, resources)
     except AvailabilityError as error:
         return _booking_form([str(error)], 409)
     except (BookingInputError, BookingValidationError) as error:
@@ -179,8 +143,8 @@ def create_appointment():
         return _booking_form(
             [
                 (
-                    "Check the selected physiotherapist and equipment, use future local dates "
-                    "with the end after the start, and enter a reason of 1 to "
+                    "Check the selected physiotherapist and equipment, use a future local "
+                    "start time, and enter a reason of 1 to "
                     f"{REASON_MAX_LENGTH} characters."
                 )
             ],
@@ -188,15 +152,18 @@ def create_appointment():
         )
     except (SQLAlchemyError, BookingTransactionError):
         db.session.rollback()
+        current_app.logger.exception(
+            "Unable to save appointment at %s", request.endpoint
+        )
         abort(503, description="Unable to save the appointment. Please try again.")
-
     return redirect(url_for("student.my_appointments"), code=303)
 
 
 @student.post("/appointments/<int:id>/cancel")
 @login_required
 def cancel_appointment(id):
-    _check_csrf()
+    if not 1 <= id <= MAX_FORM_ID:
+        abort(404)
     try:
         cancel_booking(id, current_user.id)
     except LookupError:
@@ -205,6 +172,8 @@ def cancel_appointment(id):
         abort(409, description=str(error))
     except SQLAlchemyError:
         db.session.rollback()
+        current_app.logger.exception(
+            "Unable to cancel appointment at %s", request.endpoint
+        )
         abort(503, description="Unable to cancel the appointment. Please try again.")
-
     return redirect(url_for("student.my_appointments"), code=303)

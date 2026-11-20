@@ -141,7 +141,7 @@ def events():
         return _error(str(error), 400, "invalid_request")
     except SQLAlchemyError:
         db.session.rollback()
-        current_app.logger.warning("Calendar data is temporarily unavailable.")
+        current_app.logger.exception("Calendar database error at %s", request.endpoint)
         return _error(
             "Calendar data is temporarily unavailable. Please try again.",
             503,

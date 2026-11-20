@@ -23,14 +23,15 @@ Submit URL-encoded form data, rather than JSON:
 |---|---|---|
 | `physio_id` | `3` | Positive integer; existing user with role `physio` |
 | `start_time` | `2035-01-15T10:00` | Future timezone-naive datetime |
-| `end_time` | `2035-01-15T11:00` | Timezone-naive datetime after start |
 | `reason` | `Knee treatment` | 1 to 500 characters after trimming surrounding spaces |
 | `resource_<id>` | `resource_1=1` | Positive integer quantity; blank or `0` means not selected |
 | `csrf_token` | Signed token from the rendered page | Required for both POST routes |
 
 Resources are optional. Unknown resources, invalid quantities and repeated resource
 fields are rejected. Submitted `client_id`, `status` and `physio_notes` cannot override
-server-controlled values. Business hours and fixed appointment duration remain
+server-controlled values. The form has no `end_time` field: the backend computes
+`end_time = start_time + APPOINTMENT_DURATION`, a fixed 30 minutes defined once in
+`app/appointments.py`. A submitted `end_time` is ignored. Business hours remain
 unconfirmed in the shared naming document; this task does not invent those rules.
 
 Successful POSTs return 303 to the personal list. Invalid booking data returns 400,
@@ -40,7 +41,7 @@ Database failures roll back and return a generic 503 without database details.
 
 ## Transactions and availability
 
-`create_appointment(client_id, physio_id, start_time, end_time, reason, resources)`
+`create_appointment(client_id, physio_id, start_time, reason, resources)`
 validates the client, takes a booking lock, checks availability again and commits the
 appointment and resource allocations together. Failures roll the transaction back.
 Call it after finishing unrelated writes; it owns the commit/rollback boundary.
@@ -82,11 +83,11 @@ connected to these routes; integrate it under the shared frontend/backend task.
 
 - The list receives `appointments` and a signed string `csrf_token`.
 - The booking form receives `resources`, `physios`, `errors`, `csrf_token`,
-  `form_data` and `reason_max_length` (500). On failure `form_data` retains only
-  booking fields and equipment quantities; it excludes CSRF and owner/status fields.
-- Populate inputs from `form_data` when rendering validation or conflict errors,
-  and set `maxlength="{{ reason_max_length }}"` on a free-text reason input.
+  and `form_data`. On failure `form_data` retains only booking fields and equipment
+  quantities; it excludes CSRF and owner/status fields.
+- Populate inputs from `form_data` when rendering validation or conflict errors.
   Parsing errors use readable field-specific messages instead of Python exceptions.
+  The reason is limited to 500 characters by the backend.
 - Add `<input type="hidden" name="csrf_token" value="{{ csrf_token }}">` to each
   booking/cancellation form, and use the POST URLs above.
 - Render `appointments` from the server and remove the mock-data JavaScript submission

@@ -10,9 +10,8 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
-from flask_wtf.csrf import generate_csrf, validate_csrf
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy.exc import SQLAlchemyError
-from wtforms.validators import ValidationError
 
 from app.appointments import (
     REASON_MAX_LENGTH,
@@ -79,6 +78,7 @@ def invalid_management_request(error):
 @physio.errorhandler(BookingTransactionError)
 def management_unavailable(error):
     db.session.rollback()
+    current_app.logger.exception("Physio management error at %s", request.endpoint)
     return (
         render_template(
             "physio/error.html",
@@ -103,14 +103,6 @@ def _single_field(name, default=None):
     if len(values) > 1:
         raise PhysioValidationError("Submit each field only once.")
     return values[0] if values else default
-
-
-def _check_csrf():
-    if current_app.config.get("WTF_CSRF_ENABLED", True):
-        try:
-            validate_csrf(_single_field("csrf_token"))
-        except ValidationError:
-            abort(400, description="Invalid or missing CSRF token.")
 
 
 def _parse_datetime(name):
@@ -156,6 +148,8 @@ def _parse_resources():
 @physio.get("/dashboard")
 @login_required
 def dashboard():
+    if any(len(request.args.getlist(field)) > 1 for field in ("date", "view")):
+        raise PhysioValidationError("Submit each field only once.")
     raw_date = request.args.get("date")
     today = date.today()  # noqa: DTZ011 (database uses naive local times)
     try:
@@ -194,7 +188,6 @@ def appointment_detail(id):
 @physio.post("/appointments/<int:id>/edit")
 @login_required
 def edit_appointment(id):
-    _check_csrf()
     update_appointment(
         id,
         current_user.id,
@@ -210,7 +203,6 @@ def edit_appointment(id):
 @physio.post("/appointments/<int:id>/notes")
 @login_required
 def update_notes(id):
-    _check_csrf()
     update_physio_notes(id, current_user.id, _single_field("notes"))
     return redirect(url_for("physio.appointment_detail", id=id), code=303)
 
@@ -229,7 +221,6 @@ def inventory():
 @physio.post("/inventory/<int:id>/edit")
 @login_required
 def update_resource(id):
-    _check_csrf()
     try:
         new_quantity = int(_single_field("total_quantity", ""))
     except ValueError:

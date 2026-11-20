@@ -570,9 +570,19 @@ def test_real_factory_physio_workflow_uses_forms_and_csrf(monkeypatch):
             db.session.commit()
             appointment_id, bed_id = appointment.id, bed.id
             client = real_app.test_client()
+            login_page = client.get("/auth/login")
+            login_token = (
+                re.search(rb'name="csrf_token" value="([^"]+)"', login_page.data)
+                .group(1)
+                .decode()
+            )
             response = client.post(
                 "/auth/login",
-                data={"email": "physio@example.com", "password": "test-password"},
+                data={
+                    "csrf_token": login_token,
+                    "email": "physio@example.com",
+                    "password": "test-password",
+                },
                 follow_redirects=True,
             )
             assert response.status_code == 200 and b"Your agenda" in response.data

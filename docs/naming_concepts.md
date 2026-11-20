@@ -78,7 +78,7 @@ for one context of the system.
 |---|---|---|---|
 | GET/POST | `/auth/register` | `auth.register` | Registration form + processing |
 | GET/POST | `/auth/login` | `auth.login` | Login form + processing |
-| GET | `/auth/logout` | `auth.logout` | Logs out and redirects |
+| GET/POST | `/auth/logout` | `auth.logout` | GET confirms; CSRF-protected POST logs out and redirects |
 
 **`student`** — Everything the student sees
 
@@ -128,8 +128,9 @@ doesn't raise an error — it renders empty.
 
 | Endpoint | Template | Variables received |
 |---|---|---|
-| `auth.register` | `auth/register.html` | `errors` (list of strings, optional) |
-| `auth.login` | `auth/login.html` | `errors` (list of strings, optional) |
+| `auth.register` | `auth/register.html` | `errors` (list of strings, optional), `csrf_token` (signed string) |
+| `auth.login` | `auth/login.html` | `errors` (list of strings, optional), `csrf_token` (signed string) |
+| `auth.logout` (GET) | `auth/logout.html` | `csrf_token` (signed string); confirmation only |
 | `student.my_appointments` | `student/my_appointments.html` | `appointments` (list of Appointment objects with their resources) |
 | `student.new_appointment` | `student/new_appointment.html` | `resources` (list of Resource objects), `errors` (optional) |
 | `physio.dashboard` | `physio/dashboard.html` | `appointments` (list for the day), `selected_date` (date object) |
@@ -143,6 +144,11 @@ synonyms — `appointments`, not `agenda`, not `bookings`, not `citas`.
 **Global variable available in all templates:** `current_user`
 (injected automatically by Flask-Login). Vitor can use it to
 show the logged-in user's name, condition menus by role, etc.
+
+`csp_nonce` is available for any required inline script element, using
+`<script nonce="{{ csp_nonce }}">`. Prefer external scripts; inline event-handler
+attributes such as `onclick` are not permitted by the security policy.
+See [backend_security.md](backend_security.md) for CSRF and logout integration.
 
 ## 6. JSON format for FullCalendar.js
 

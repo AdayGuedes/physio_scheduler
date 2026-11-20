@@ -1,7 +1,6 @@
-
 """Student appointment queries and transactional booking operations."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import selectinload
 
@@ -10,25 +9,7 @@ from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
 REASON_MAX_LENGTH = 500
-
-SPORT_OPTIONS = {
-    "men-baseball",
-    "men-basketball",
-    "men-bowling",
-    "men-cross-country",
-    "men-football",
-    "men-golf",
-    "men-soccer",
-    "men-track-field",
-    "women-basketball",
-    "women-bowling",
-    "women-cross-country",
-    "women-golf",
-    "women-soccer",
-    "women-softball",
-    "women-track-field",
-    "women-volleyball",
-}
+APPOINTMENT_DURATION = timedelta(minutes=30)
 
 
 class BookingTransactionError(RuntimeError):
@@ -88,20 +69,23 @@ def lock_booking(physio_id, resources):
             ).all()
 
 
-def create_appointment(
-    client_id, physio_id, start_time, end_time, reason, resources, sport=None
-):
+def create_appointment(client_id, physio_id, start_time, reason, resources):
     """Validate and commit a booking and its equipment as one transaction.
 
-    The caller must finish unrelated writes first. Unflushed changes are rejected
-    without discarding them. On failure after validation, the
-    transaction is rolled back, including all appointment-resource rows.
+    The appointment ends APPOINTMENT_DURATION after start_time. The caller must
+    finish unrelated writes first. Unflushed changes are rejected without
+    discarding them. On failure after validation, the transaction is rolled back,
+    including all appointment-resource rows.
     """
     if db.session.new or db.session.dirty or db.session.deleted:
-        raise BookingTransactionError(
-            "Finish pending database changes before booking."
-        )
+        raise BookingTransactionError("Finish pending database changes before booking.")
     try:
+        if not isinstance(start_time, datetime):
+            raise BookingValidationError("Enter a valid start date and time.")
+        try:
+            end_time = start_time + APPOINTMENT_DURATION
+        except OverflowError:
+            raise BookingValidationError("Enter a valid start date and time.") from None
         validate_availability_request(start_time, end_time, resources)
         if start_time <= datetime.now():  # noqa: DTZ005 (DB uses local naive times)
             raise BookingValidationError("Appointments must start in the future.")
@@ -111,8 +95,6 @@ def create_appointment(
             raise BookingValidationError(
                 f"Reason must be {REASON_MAX_LENGTH} characters or fewer."
             )
-        if sport is not None and sport not in SPORT_OPTIONS:
-            raise BookingValidationError("Select a valid sport.")
         if type(physio_id) is not int or physio_id <= 0:
             raise ValueError("physio_id must be a positive integer")
         if type(client_id) is not int or client_id <= 0:
@@ -130,7 +112,6 @@ def create_appointment(
             start_time=start_time,
             end_time=end_time,
             reason=reason.strip(),
-            sport=sport,
             status="confirmed",
         )
         db.session.add(appointment)

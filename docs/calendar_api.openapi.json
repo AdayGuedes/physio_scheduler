@@ -27,7 +27,8 @@
           "400": {"description": "Missing, malformed, duplicate, unsupported or excessive query parameters.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "End must be after start.", "code": "invalid_request"}}}},
           "401": {"description": "No valid authenticated user session. No HTML login redirect.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Authentication required.", "code": "authentication_required"}}}},
           "403": {"description": "Authenticated account does not have the physio role.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Physiotherapist access required.", "code": "forbidden"}}}},
-          "405": {"description": "Mutation methods are not accepted. This is Flask's standard routing response and can be HTML."},
+          "405": {"description": "Mutation methods are not accepted. The full application returns JSON after PS-10; standalone blueprint apps may use Flask's HTML default."},
+          "429": {"description": "Per-IP request limit exceeded. Respect the Retry-After header before retrying.", "headers": {"Retry-After": {"description": "Delay in seconds before retrying.", "schema": {"type": "string"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Request limit exceeded.", "code": "rate_limited"}}}},
           "422": {"description": "The requested range contains more than 1,000 owned matching events; request a smaller range.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Too many events in this range. Choose a smaller date range.", "code": "too_many_events"}}}},
           "500": {"description": "Unexpected application failure, with no exception details in the response.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Unable to load calendar events.", "code": "internal_error"}}}},
           "503": {"description": "Temporary database failure; retry later.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CalendarError"}, "example": {"error": "Calendar data is temporarily unavailable. Please try again.", "code": "unavailable"}}}}
@@ -57,7 +58,7 @@
         "required": ["error", "code"],
         "properties": {
           "error": {"type": "string", "description": "Safe human-readable message."},
-          "code": {"type": "string", "enum": ["invalid_request", "authentication_required", "forbidden", "too_many_events", "internal_error", "unavailable"]}
+          "code": {"type": "string", "enum": ["invalid_request", "authentication_required", "forbidden", "too_many_events", "internal_error", "unavailable", "rate_limited", "method_not_allowed", "not_found", "request_too_large"]}
         }
       }
     }

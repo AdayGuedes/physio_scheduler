@@ -23,7 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-8] Add physio agenda, appointment management, clinical notes and shared inventory
 - [PS-26] Add development-only seed command for dummy physio and client users
 - [PS-9] Add a protected FullCalendar event feed with date filters and API documentation
+- [PS-12] Complete shared base layout, role-based navigation and styling
+- [PS-28] Validate client and physio roles when appointments are inserted or updated
+- [PS-11] Complete backend regression coverage for auth, bookings, roles and API
+- [NO-REF] Add frontend decisions, contracts, task specs and implementation skill for booking
 
 ### Changed
 
 - [PS-25] Improve Claude PR review prompt with inline comments and allowed tools
+- [NO-REF] Update README setup, database and test instructions
+- [NO-REF] Replace the Avocoding plugin block in CLAUDE.md with project rules and disable it here
+- [PS-29] Fix student appointments at 30 minutes and compute the end time in the backend
+
+### Security
+
+- [PS-10] Protect sessions, forms and private routes with validation and request limits
