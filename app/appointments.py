@@ -118,7 +118,6 @@ def create_appointment(client_id, physio_id, start_time, reason, resources):
             raise ValueError("Unknown client id.")
         if physio_id is None:
             free_physio_ids = []
-            resource_error = None
             for candidate_id in candidate_physio_ids:
                 result = check_availability(
                     start_time, end_time, resources, candidate_id
@@ -126,11 +125,9 @@ def create_appointment(client_id, physio_id, start_time, reason, resources):
                 if result["available"]:
                     free_physio_ids.append(candidate_id)
                 elif result["reason"] == "resource_unavailable":
-                    resource_error = result["message"]
+                    raise AvailabilityError(result["message"])
             if not free_physio_ids:
-                raise AvailabilityError(
-                    resource_error or "No physiotherapist is available at this time."
-                )
+                raise AvailabilityError("No physiotherapist is available at this time.")
             physio_id = random.choice(free_physio_ids)
         else:
             result = check_availability(start_time, end_time, resources, physio_id)

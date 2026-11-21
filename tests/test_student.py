@@ -20,7 +20,7 @@ from app.appointments import (
     create_appointment,
 )
 from app.auth import auth
-from app.availability import get_free_start_times
+from app.availability import check_availability, get_free_start_times
 from app.extensions import db, login_manager
 from app.models import Appointment, AppointmentResource, Resource, User
 from app.student import student
@@ -652,6 +652,71 @@ def test_any_physio_rejects_when_all_are_busy_without_disclosure(student_app, pe
     assert "Physio" not in error_message
     assert "Second" not in error_message
     assert len(db.session.scalars(db.select(Appointment)).all()) == 2
+
+
+def test_any_physio_reports_unavailable_equipment_and_stops_checking(
+    student_app, people, monkeypatch
+):
+    ids, bed_id = people
+    third = User(
+        name="Third",
+        email="third@example.com",
+        password_hash="test-hash",
+        role="physio",
+    )
+    booked = Appointment(
+        client_id=ids[1],
+        physio_id=ids[2],
+        start_time=datetime(2035, 1, 15, 10),
+        end_time=datetime(2035, 1, 15, 10, 30),
+        reason="Treatment",
+        status="confirmed",
+    )
+    db.session.add_all([third, booked])
+    db.session.flush()
+    db.session.add(
+        AppointmentResource(appointment_id=booked.id, resource_id=bed_id, quantity=1)
+    )
+    db.session.commit()
+    checked_physio_ids = []
+
+    def record_check(start_time, end_time, resources, physio_id):
+        checked_physio_ids.append(physio_id)
+        return check_availability(start_time, end_time, resources, physio_id)
+
+    monkeypatch.setattr("app.appointments.check_availability", record_check)
+    data = _form(people)
+    data.pop("physio_id")
+
+    response = _login(student_app, ids[0]).post("/student/appointments", data=data)
+
+    assert response.status_code == 409
+    assert response.text.split("|", 1)[0] == "Not enough Bed available."
+    assert checked_physio_ids == [ids[2], ids[3]]
+    assert len(db.session.scalars(db.select(Appointment)).all()) == 1
+
+
+def test_any_physio_rejects_when_no_physio_exists(student_app):
+    client = User(
+        name="Client",
+        email="client@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.commit()
+
+    response = _login(student_app, client.id).post(
+        "/student/appointments",
+        data={"start_time": "2035-01-15T10:00", "reason": "Knee treatment"},
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.text.split("|", 1)[0]
+        == "No physiotherapist is available at this time."
+    )
+    assert db.session.scalar(db.select(Appointment)) is None
 
 
 def test_selected_busy_physio_is_rejected_even_when_other_is_free(student_app, people):
