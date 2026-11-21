@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [NO-REF] Add frontend decisions, contracts, task specs and implementation skill for booking
 - [PS-30] Add student free start times for a chosen or any available physio
 - [PS-31] Add available equipment endpoint for student booking
+- [NO-REF] Add task spec to enforce the clinic start-time grid on student bookings
 
 ### Changed
 
