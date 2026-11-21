@@ -54,6 +54,23 @@ No physio ids or names appear in the response.
 
 - The candidate grid is fixed: 08:00 to 18:00 inclusive, every 30 minutes. Define it once as a constant next to
   `APPOINTMENT_DURATION`, not as literals in the function.
-- T1 is done: `APPOINTMENT_DURATION` already exists in `app/appointments.py`. Import it, do not redefine it.
+- T1 is done: `APPOINTMENT_DURATION` is shared by `app/availability.py` and `app/appointments.py`.
 - The response is read-only. Two students can get the same start time in the list; the POST (T4) is what
   enforces the real booking, so the list is advisory.
+
+## Implementation notes
+
+- `app/availability.py` defines `CLINIC_FIRST_START_TIME`, `CLINIC_LAST_START_TIME`, and
+  `APPOINTMENT_DURATION`. `get_free_start_times(date, physio_id=None)` loads confirmed bookings in one
+  query and calculates free slots in memory.
+- `app/appointments.py` imports `APPOINTMENT_DURATION` from `app/availability.py`, avoiding a circular
+  import and keeping the existing booking duration unchanged.
+- `app/student.py` adds `student.free_times` at `GET /student/free-times`. It accepts `date=YYYY-MM-DD` and an
+  optional `physio_id`, returning only `date` and `start_times` in JSON.
+- `tests/test_student.py` covers free-slot unions, selected physios, cancellations, past times, validation,
+  empty days, access control, the 18:00 boundary, another physio's booking, and the appointment query count.
+  `CHANGELOG.md` records the change.
+- Deviation from the original per-slot `check_availability` objective: the confirmed physio bookings are
+  fetched once and checked in memory to avoid a query per slot and physio. The response and constraints are
+  unchanged. T5 can fetch this endpoint to fill the start-time dropdown; the list remains advisory until
+  T4 enforces the final booking.

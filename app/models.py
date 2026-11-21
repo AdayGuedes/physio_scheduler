@@ -1,4 +1,3 @@
-
 from flask_login import UserMixin
 from sqlalchemy import event, inspect, select
 
@@ -71,7 +70,6 @@ class Appointment(db.Model):
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
     reason = db.Column(db.String, nullable=False)
-    sport = db.Column(db.String(50), nullable=True)
     physio_notes = db.Column(db.String, nullable=True)
     status = db.Column(
         db.Enum(

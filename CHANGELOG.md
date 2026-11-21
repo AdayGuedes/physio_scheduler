@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-28] Validate client and physio roles when appointments are inserted or updated
 - [PS-11] Complete backend regression coverage for auth, bookings, roles and API
 - [NO-REF] Add frontend decisions, contracts, task specs and implementation skill for booking
+- [PS-30] Add student free start times for a chosen or any available physio
+- [PS-31] Add available equipment endpoint for student booking
+- [NO-REF] Add task spec to enforce the clinic start-time grid on student bookings
 
 ### Changed
 
@@ -35,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [NO-REF] Replace the Avocoding plugin block in CLAUDE.md with project rules and disable it here
 - [PS-29] Fix student appointments at 30 minutes and compute the end time in the backend
 - [PS-12] Render student appointments from the backend list and support cancellation
+- [PS-32] Allow student bookings without choosing a physiotherapist
 
 ### Security
 
