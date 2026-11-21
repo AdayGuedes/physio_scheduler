@@ -1,15 +1,18 @@
 """Student appointment queries and transactional booking operations."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy.orm import selectinload
 
-from app.availability import check_availability, validate_availability_request
+from app.availability import (
+    APPOINTMENT_DURATION,
+    check_availability,
+    validate_availability_request,
+)
 from app.extensions import db
 from app.models import Appointment, AppointmentResource, Resource, User
 
 REASON_MAX_LENGTH = 500
-APPOINTMENT_DURATION = timedelta(minutes=30)
 
 
 class BookingTransactionError(RuntimeError):
