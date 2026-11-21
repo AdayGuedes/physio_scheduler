@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [NO-REF] Update README setup, database and test instructions
 - [NO-REF] Replace the Avocoding plugin block in CLAUDE.md with project rules and disable it here
 - [PS-29] Fix student appointments at 30 minutes and compute the end time in the backend
+- [PS-12] Render student appointments from the backend list and support cancellation
 
 ### Security
 

@@ -45,3 +45,13 @@ Contracts: `contracts/student_appointments.md`.
 - The "future start" check for the cancel button is a display rule. The backend decides whether the cancel is
   allowed, so a stale page still gets a clear error.
 - Templates and `static/` are the frontend area in `CLAUDE.md`. Agree the handover before starting.
+
+## Implementation notes
+
+- Changed `app/templates/student/appointments.html` and the appointment-list block in
+  `app/static/js/main.js`; added list coverage in `tests/test_student.py`.
+- The template renders cancel forms for confirmed appointments with their start time. JavaScript hides
+  forms when the start time has passed; the backend cancellation rule remains unchanged.
+- The full test suite passes: 526 passed, 1 skipped and 1 xfailed. Format and lint report existing
+  issues in restored sport files, which remain unchanged.
+- No later task depends on a new route, field or constant from T6.

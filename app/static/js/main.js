@@ -49,64 +49,8 @@ if (appointmentForm) {
 }
 
 
-// ---------------- MY APPOINTMENTS ----------------
-
-const appointmentCard =
-  document.getElementById("appointment-card");
-
-if (appointmentCard) {
-  const savedAppointment =
-    localStorage.getItem("appointment");
-
-  if (savedAppointment) {
-    try {
-      const appointment = JSON.parse(savedAppointment);
-
-      document.getElementById("no-appointments").style.display =
-        "none";
-
-      document.getElementById("appointment-name").textContent =
-        appointment.fullName;
-
-      document.getElementById(
-        "appointment-date-display",
-      ).textContent = appointment.date;
-
-      document.getElementById(
-        "appointment-time-display",
-      ).textContent = appointment.time;
-
-      document.getElementById("appointment-sport").textContent =
-        appointment.sport;
-
-      document.getElementById("appointment-reason").textContent =
-        appointment.reason;
-
-      document.getElementById("appointment-notes").textContent =
-        appointment.notes || "No additional notes.";
-    } catch (error) {
-      // Remove corrupted appointment data.
-      localStorage.removeItem("appointment");
-    }
-  }
-}
-
-
-// ---------------- CANCEL APPOINTMENT ----------------
-
-function cancelAppointment() {
-  const confirmCancel = confirm(
-    "Are you sure you want to cancel this appointment?",
-  );
-
-  if (confirmCancel) {
-    localStorage.removeItem("appointment");
-
-    window.location.href = "/student/appointments";
-  }
-}
-
-const cancelAppointmentButton = document.querySelector(".cancel-appointment");
-if (cancelAppointmentButton) {
-  cancelAppointmentButton.addEventListener("click", cancelAppointment);
+for (const form of document.querySelectorAll(
+  ".cancel-appointment-form[data-start-time]",
+)) {
+  form.hidden = new Date(form.dataset.startTime).getTime() <= Date.now();
 }
