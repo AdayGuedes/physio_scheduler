@@ -156,6 +156,63 @@ def test_new_form_supplies_resources_physios_and_canonical_url(student_app, peop
         assert url_for("student.new_appointment") == "/student/appointments/new"
 
 
+def test_booking_page_renders_contract_fields_without_removed_fields(
+    student_app, people
+):
+    student_app.jinja_env.loader = FileSystemLoader(
+        Path(__file__).parents[1] / "app" / "templates"
+    )
+    response = _login(student_app, people[0][0]).get("/student/appointments/new")
+    assert response.status_code == 200
+    form = response.text.split("<form", 1)[1].split("</form>", 1)[0]
+    assert 'method="POST"' in form
+    assert 'name="csrf_token"' in form
+    assert 'name="reason"' in form
+    assert 'name="physio_id"' in form
+    assert 'name="start_time"' in form
+    assert "Any physio" in form
+    for reason in (
+        "Injury",
+        "Pain or discomfort",
+        "Injury recovery",
+        "Injury prevention",
+        "Physical evaluation",
+        "Other",
+    ):
+        assert f'<option value="{reason}"' in form
+    for field in ("sport", "student_id", "email", "notes", "end_time"):
+        assert f'name="{field}"' not in form
+
+    javascript = Path(__file__).parents[1] / "app" / "static" / "js" / "main.js"
+    script = javascript.read_text()
+    assert "fetch(`/student/free-times?${query}`)" in script
+    assert "/student/resources?start_time=${encodeURIComponent(startTime)}" in script
+    assert "input.name = `resource_${resource.id}`" in script
+    assert "input.max = String(resource.available)" in script
+    assert "localStorage" not in script
+
+
+def test_booking_form_shows_errors_and_preserves_submitted_values(student_app, people):
+    student_app.jinja_env.loader = FileSystemLoader(
+        Path(__file__).parents[1] / "app" / "templates"
+    )
+    response = _login(student_app, people[0][0]).post(
+        "/student/appointments",
+        data={
+            "csrf_token": "test-token",
+            "reason": "Other",
+            "physio_id": "",
+            "start_time": "invalid",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Enter a valid start date and time." in response.text
+    assert "data-form-data=" in response.text
+    assert "invalid" in response.text
+    assert "Other" in response.text
+
+
 def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
     student_app, people
 ):

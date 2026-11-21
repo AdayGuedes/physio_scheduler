@@ -58,3 +58,16 @@ Contracts: `contracts/student_new_appointment.md`. Template variables: `physios`
   `id`, `name`, and `available`. Use `available` as each equipment input's maximum.
 - T4 accepts an empty or omitted `physio_id` on `POST /student/appointments` and assigns an available
   physio during booking. Keep "Any physio" as the default dropdown option.
+
+## Implementation notes
+
+- Changed `app/templates/student/new_appointment.html` and the booking block in
+  `app/static/js/main.js`; added rendered-form and validation-error coverage in `tests/test_student.py`.
+- The page loads free times and available resources from the T2 and T3 endpoints, caps each equipment
+  quantity at the returned `available` value, and submits an ordinary POST with an empty `physio_id` for
+  "Any physio". Failed submissions retain the supplied form values.
+- T2, T3 and T4 were merged from main before T5 implementation. No backend or migration code was changed
+  for T5.
+- The full test suite, format check and lint pass. A fresh temporary database upgraded from migrations
+  passes `flask db check`; the default local database has stale schema without the unique constraints on
+  `resources.name`, `resources.type` and `users.email`.

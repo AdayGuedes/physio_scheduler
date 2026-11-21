@@ -9,8 +9,8 @@ Before implementing a task, read `../decisions.md` and the contracts it lists.
 | T2 | Free start times endpoint | T1 | Done |
 | T3 | Available equipment endpoint | — | Done |
 | T4 | Optional physio and physio assignment | T1 | Done |
-| T5 | Booking page and booking JavaScript | T2, T3, T4 | Pending |
-| T6 | Student appointment list and cancel | — | Pending |
+| T5 | Booking page and booking JavaScript | T2, T3, T4 | Done |
+| T6 | Student appointment list and cancel | — | Done |
 | T7 | Enforce the start-time grid on booking | T4 | Pending |
 
 ## Order

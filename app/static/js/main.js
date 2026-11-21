@@ -1,51 +1,131 @@
-// ---------------- NEW APPOINTMENT ----------------
-
 const appointmentForm = document.getElementById("appointment-form");
 
 if (appointmentForm) {
-  const successMessage = document.getElementById("success-message");
   const appointmentDate = document.getElementById("appointment-date");
+  const physioSelect = document.getElementById("physio_id");
+  const startTimeSelect = document.getElementById("start_time");
+  const freeTimesMessage = document.getElementById("free-times-message");
+  const equipmentSection = document.getElementById("equipment-section");
+  const equipmentFields = document.getElementById("equipment-fields");
+  const equipmentMessage = document.getElementById("equipment-message");
+  const formData = JSON.parse(appointmentForm.dataset.formData || "{}");
+  let savedStartTime = startTimeSelect.dataset.savedStartTime;
+  const localDate = new Date();
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+  appointmentDate.min = localDate.toISOString().slice(0, 10);
 
-  // Prevent users from selecting a date in the past.
-  // Use local date instead of UTC.
-  const now = new Date();
+  let freeTimesRequest = 0;
+  let equipmentRequest = 0;
 
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+  function clearEquipment() {
+    equipmentRequest += 1;
+    equipmentFields.replaceChildren();
+    equipmentMessage.textContent = "";
+    equipmentSection.hidden = true;
+  }
 
-  appointmentDate.min = `${year}-${month}-${day}`;
+  async function loadEquipment(startTime) {
+    clearEquipment();
+    const requestId = equipmentRequest;
+    if (!startTime) return;
 
-  appointmentForm.addEventListener("submit", function (event) {
-    event.preventDefault();
+    try {
+      const response = await fetch(
+        `/student/resources?start_time=${encodeURIComponent(startTime)}`,
+      );
+      const data = await response.json();
+      if (requestId !== equipmentRequest) return;
+      if (!response.ok) throw new Error(data.error || "Unable to load equipment.");
 
-    const appointment = {
-      fullName: document.getElementById("full-name").value,
-      studentId: document.getElementById("student-id").value,
-      email: document.getElementById("email").value,
-      sport: document.getElementById("sport-select").value,
-      date: document.getElementById("appointment-date").value,
-      time: document.getElementById("appointment-time").value,
-      reason: document.getElementById("reason").value,
-      notes: document.getElementById("notes").value,
-    };
+      for (const resource of data.resources || []) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "mb-3";
+        const label = document.createElement("label");
+        label.className = "form-label";
+        label.htmlFor = `resource-${resource.id}`;
+        label.textContent = `${resource.name} (Available: ${resource.available})`;
+        const input = document.createElement("input");
+        input.className = "form-control";
+        input.type = "number";
+        input.id = `resource-${resource.id}`;
+        input.name = `resource_${resource.id}`;
+        input.min = "0";
+        input.max = String(resource.available);
+        input.step = "1";
+        input.value = formData[input.name] || "";
+        wrapper.append(label, input);
+        equipmentFields.append(wrapper);
+      }
 
-    // TODO(PS-API): Replace localStorage with a POST request
-    // to the Flask backend when the appointment API is implemented.
-    localStorage.setItem(
-      "appointment",
-      JSON.stringify(appointment),
-    );
+      if (data.resources?.length) equipmentSection.hidden = false;
+    } catch (error) {
+      if (requestId !== equipmentRequest) return;
+      equipmentSection.hidden = false;
+      equipmentMessage.textContent = error.message;
+    }
+  }
 
-    successMessage.textContent =
-      "Your appointment has been scheduled successfully!";
+  async function loadFreeTimes() {
+    const requestId = ++freeTimesRequest;
+    const date = appointmentDate.value;
+    const savedTime = startTimeSelect.value || savedStartTime;
+    startTimeSelect.replaceChildren();
+    startTimeSelect.disabled = true;
+    clearEquipment();
 
-    successMessage.classList.add("success");
+    if (!date) {
+      startTimeSelect.add(new Option("Select a date first", ""));
+      freeTimesMessage.textContent = "";
+      return;
+    }
 
-    setTimeout(function () {
-      window.location.href = "/student/appointments";
-    }, 1000);
+    startTimeSelect.add(new Option("Loading...", ""));
+    freeTimesMessage.textContent = "";
+    const query = new URLSearchParams({ date });
+    if (physioSelect.value) query.set("physio_id", physioSelect.value);
+
+    try {
+      const response = await fetch(`/student/free-times?${query}`);
+      const data = await response.json();
+      if (requestId !== freeTimesRequest) return;
+      if (!response.ok) throw new Error(data.error || "Unable to load free times.");
+
+      startTimeSelect.replaceChildren();
+      if (!data.start_times.length) {
+        startTimeSelect.add(new Option("No free times", ""));
+        freeTimesMessage.textContent = "No free times on this day";
+        return;
+      }
+
+      startTimeSelect.add(new Option("Select a time", ""));
+      for (const startTime of data.start_times) {
+        const time = startTime.slice(11, 16);
+        const [hours, minutes] = time.split(":").map(Number);
+        const displayTime = new Date(2000, 0, 1, hours, minutes).toLocaleTimeString(
+          [],
+          { hour: "numeric", minute: "2-digit" },
+        );
+        startTimeSelect.add(new Option(displayTime, startTime));
+      }
+      startTimeSelect.disabled = false;
+      if (data.start_times.includes(savedTime)) {
+        startTimeSelect.value = savedTime;
+        await loadEquipment(savedTime);
+      }
+    } catch (error) {
+      if (requestId !== freeTimesRequest) return;
+      startTimeSelect.replaceChildren(new Option("Unable to load free times", ""));
+      freeTimesMessage.textContent = error.message;
+    }
+  }
+
+  appointmentDate.addEventListener("change", loadFreeTimes);
+  physioSelect.addEventListener("change", loadFreeTimes);
+  startTimeSelect.addEventListener("change", () => {
+    savedStartTime = "";
+    loadEquipment(startTimeSelect.value);
   });
+  if (appointmentDate.value) loadFreeTimes();
 }
 
 
