@@ -8,6 +8,7 @@ from threading import Barrier
 import pytest
 from flask import Flask, g, template_rendered, url_for
 from jinja2 import DictLoader
+from sqlalchemy import event
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.datastructures import MultiDict
 
@@ -19,6 +20,7 @@ from app.appointments import (
     create_appointment,
 )
 from app.auth import auth
+from app.availability import get_free_start_times
 from app.extensions import db, login_manager
 from app.models import Appointment, AppointmentResource, Resource, User
 from app.student import student
@@ -157,6 +159,217 @@ def test_legacy_new_form_url_still_loads(student_app, people):
         _login(student_app, people[0][0]).get("/student/new-appointment").status_code
         == 200
     )
+
+
+def test_free_times_union_does_not_reveal_physio_identity(student_app, people):
+    ids, _ = people
+    db.session.add_all(
+        [
+            Appointment(
+                client_id=ids[0],
+                physio_id=ids[2],
+                start_time=datetime(2035, 1, 15, 10),
+                end_time=datetime(2035, 1, 15, 10, 30),
+                reason="Visit",
+                status="confirmed",
+            ),
+            Appointment(
+                client_id=ids[1],
+                physio_id=ids[3],
+                start_time=datetime(2035, 1, 15, 10, 30),
+                end_time=datetime(2035, 1, 15, 11),
+                reason="Visit",
+                status="confirmed",
+            ),
+            Appointment(
+                client_id=ids[0],
+                physio_id=ids[2],
+                start_time=datetime(2035, 1, 15, 11),
+                end_time=datetime(2035, 1, 15, 11, 30),
+                reason="Visit",
+                status="confirmed",
+            ),
+            Appointment(
+                client_id=ids[1],
+                physio_id=ids[3],
+                start_time=datetime(2035, 1, 15, 11),
+                end_time=datetime(2035, 1, 15, 11, 30),
+                reason="Visit",
+                status="confirmed",
+            ),
+        ]
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[0]).get("/student/free-times?date=2035-01-15")
+
+    assert response.status_code == 200
+    assert response.json["date"] == "2035-01-15"
+    assert "2035-01-15T10:00" in response.json["start_times"]
+    assert "2035-01-15T10:30" in response.json["start_times"]
+    assert "2035-01-15T11:00" not in response.json["start_times"]
+    assert response.json["start_times"][0] == "2035-01-15T08:00"
+    assert response.json["start_times"][-1] == "2035-01-15T18:00"
+    assert len(response.json["start_times"]) == 20
+    assert set(response.json) == {"date", "start_times"}
+
+
+def test_free_times_for_selected_physio_excludes_confirmed_overlap(student_app, people):
+    ids, _ = people
+    _saved(people)
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[2]}"
+    )
+    assert response.status_code == 200
+    assert "2035-01-15T10:00" not in response.json["start_times"]
+    assert "2035-01-15T10:30" not in response.json["start_times"]
+    assert "2035-01-15T11:00" in response.json["start_times"]
+
+
+def test_free_times_for_selected_physio_ignores_other_physio_and_includes_last_start(
+    student_app, people
+):
+    ids, _ = people
+    db.session.add(
+        Appointment(
+            client_id=ids[0],
+            physio_id=ids[3],
+            start_time=datetime(2035, 1, 15, 18),
+            end_time=datetime(2035, 1, 15, 18, 30),
+            reason="Visit",
+            status="confirmed",
+        )
+    )
+    db.session.commit()
+
+    client = _login(student_app, ids[0])
+    first = client.get(f"/student/free-times?date=2035-01-15&physio_id={ids[2]}")
+    second = client.get(f"/student/free-times?date=2035-01-15&physio_id={ids[3]}")
+
+    assert "2035-01-15T18:00" in first.json["start_times"]
+    assert "2035-01-15T18:00" not in second.json["start_times"]
+
+
+def test_free_times_loads_confirmed_appointments_once(student_app, people):
+    appointment_selects = []
+
+    def count_appointment_select(
+        _connection, _cursor, statement, _params, _context, _many
+    ):
+        if "FROM appointments" in statement:
+            appointment_selects.append(statement)
+
+    event.listen(db.engine, "before_cursor_execute", count_appointment_select)
+    try:
+        start_times = get_free_start_times(datetime(2035, 1, 15).date())
+    finally:
+        event.remove(db.engine, "before_cursor_execute", count_appointment_select)
+
+    assert len(start_times) == 21
+    assert len(appointment_selects) == 1
+
+
+def test_cancelled_appointment_does_not_block_free_times(student_app, people):
+    ids, _ = people
+    _saved(people, status="cancelled_by_client")
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[2]}"
+    )
+    assert response.status_code == 200
+    assert "2035-01-15T10:00" in response.json["start_times"]
+
+
+def test_free_times_excludes_past_starts_today(student_app, people, monkeypatch):
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls):
+            return cls(2035, 1, 15, 10, 15)
+
+    monkeypatch.setattr("app.availability.datetime", FixedDatetime)
+    response = _login(student_app, people[0][0]).get(
+        "/student/free-times?date=2035-01-15"
+    )
+    assert response.status_code == 200
+    assert "2035-01-15T10:00" not in response.json["start_times"]
+    assert "2035-01-15T10:30" in response.json["start_times"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",
+        "?date=bad",
+        "?date=2035-02-30",
+        "?date=20350115",
+        "?date=2035-01-15&date=2035-01-16",
+    ],
+)
+def test_free_times_rejects_missing_or_malformed_date(student_app, people, query):
+    response = _login(student_app, people[0][0]).get(f"/student/free-times{query}")
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+@pytest.mark.parametrize("physio_id", ["nope", "0", "99999"])
+def test_free_times_rejects_invalid_physio_id(student_app, people, physio_id):
+    response = _login(student_app, people[0][0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={physio_id}"
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+def test_free_times_rejects_client_as_physio(student_app, people):
+    ids, _ = people
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[1]}"
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+def test_free_times_returns_empty_list_without_physios(student_app):
+    client = User(
+        name="Client",
+        email="client@example.com",
+        password_hash="test-hash",
+        role="client",
+    )
+    db.session.add(client)
+    db.session.commit()
+    response = _login(student_app, client.id).get("/student/free-times?date=2035-01-15")
+    assert response.status_code == 200
+    assert response.json == {"date": "2035-01-15", "start_times": []}
+
+
+def test_free_times_returns_empty_list_when_selected_physio_is_busy_all_day(
+    student_app, people
+):
+    ids, _ = people
+    db.session.add(
+        Appointment(
+            client_id=ids[0],
+            physio_id=ids[2],
+            start_time=datetime(2035, 1, 15, 8),
+            end_time=datetime(2035, 1, 15, 18, 30),
+            reason="Visit",
+            status="confirmed",
+        )
+    )
+    db.session.commit()
+    response = _login(student_app, ids[0]).get(
+        f"/student/free-times?date=2035-01-15&physio_id={ids[2]}"
+    )
+    assert response.status_code == 200
+    assert response.json == {"date": "2035-01-15", "start_times": []}
+
+
+def test_free_times_access_follows_student_permissions(student_app, people):
+    path = "/student/free-times?date=2035-01-15"
+    response = student_app.test_client().get(path)
+    assert response.status_code == 302
+    assert "/auth/login" in response.location
+    assert _login(student_app, people[0][2]).get(path).status_code == 403
 
 
 def test_create_persists_booking_and_resources_using_session_owner(student_app, people):
@@ -880,3 +1093,161 @@ def test_cancellation_has_no_time_cutoff_for_confirmed_bookings(student_app, peo
     )
     assert response.status_code == 303
     assert db.session.get(Appointment, appointment_id).status == "cancelled_by_client"
+
+
+def test_available_resources_reports_free_units_for_entire_window(student_app, people):
+    ids, bed_id = people
+    shared = Resource(name="Heat pack", type="heat", total_quantity=3)
+    db.session.add(shared)
+    db.session.flush()
+    appointment = Appointment(
+        client_id=ids[0],
+        physio_id=ids[2],
+        start_time=datetime(2035, 1, 15, 10, 15),
+        end_time=datetime(2035, 1, 15, 10, 45),
+        reason="Treatment",
+        status="confirmed",
+    )
+    db.session.add(appointment)
+    db.session.flush()
+    db.session.add(
+        AppointmentResource(
+            appointment_id=appointment.id, resource_id=shared.id, quantity=2
+        )
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.status_code == 200
+    assert response.json == {
+        "start_time": "2035-01-15T10:00",
+        "resources": [
+            {"id": bed_id, "name": "Bed", "available": 1},
+            {"id": shared.id, "name": "Heat pack", "available": 1},
+        ],
+    }
+    assert "Treatment" not in response.text
+
+
+def test_available_resources_excludes_exhausted_equipment(student_app, people):
+    ids, bed_id = people
+    appointment = Appointment(
+        client_id=ids[0],
+        physio_id=ids[2],
+        start_time=datetime(2035, 1, 15, 10, 15),
+        end_time=datetime(2035, 1, 15, 10, 45),
+        reason="Treatment",
+        status="confirmed",
+    )
+    db.session.add(appointment)
+    db.session.flush()
+    db.session.add(
+        AppointmentResource(
+            appointment_id=appointment.id, resource_id=bed_id, quantity=1
+        )
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.status_code == 200
+    assert response.json == {"start_time": "2035-01-15T10:00", "resources": []}
+
+
+def test_available_resources_uses_peak_not_sum_of_sequential_bookings(
+    student_app, people
+):
+    ids, bed_id = people
+    db.session.get(Resource, bed_id).total_quantity = 2
+    for start, end in [
+        (datetime(2035, 1, 15, 10), datetime(2035, 1, 15, 10, 15)),
+        (datetime(2035, 1, 15, 10, 15), datetime(2035, 1, 15, 10, 30)),
+    ]:
+        appointment = Appointment(
+            client_id=ids[0],
+            physio_id=ids[2],
+            start_time=start,
+            end_time=end,
+            reason="Treatment",
+            status="confirmed",
+        )
+        db.session.add(appointment)
+        db.session.flush()
+        db.session.add(
+            AppointmentResource(
+                appointment_id=appointment.id, resource_id=bed_id, quantity=1
+            )
+        )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.json["resources"] == [{"id": bed_id, "name": "Bed", "available": 1}]
+
+
+@pytest.mark.parametrize("status", ["cancelled_by_client", "completed", "no_show"])
+def test_available_resources_ignores_non_confirmed_bookings(
+    student_app, people, status
+):
+    ids, bed_id = people
+    appointment = Appointment(
+        client_id=ids[0],
+        physio_id=ids[2],
+        start_time=datetime(2035, 1, 15, 10),
+        end_time=datetime(2035, 1, 15, 10, 30),
+        reason="Treatment",
+        status=status,
+    )
+    db.session.add(appointment)
+    db.session.flush()
+    db.session.add(
+        AppointmentResource(
+            appointment_id=appointment.id, resource_id=bed_id, quantity=1
+        )
+    )
+    db.session.commit()
+
+    response = _login(student_app, ids[1]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert response.json["resources"] == [{"id": bed_id, "name": "Bed", "available": 1}]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",
+        "?start_time=bad",
+        "?start_time=",
+        "?start_time=2035-01-15",
+        "?start_time=2000-01-15T10:00",
+        "?start_time=2035-01-15T10:00&start_time=2035-01-15T11:00",
+        "?start_time=2035-01-15T10:00%2B00:00",
+    ],
+)
+def test_available_resources_rejects_invalid_times(student_app, people, query):
+    response = _login(student_app, people[0][0]).get(f"/student/resources{query}")
+
+    assert response.status_code == 400
+    assert isinstance(response.json["error"], str)
+
+
+def test_available_resources_requires_client_login(student_app, people):
+    anonymous = student_app.test_client().get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+    physio = _login(student_app, people[0][2]).get(
+        "/student/resources?start_time=2035-01-15T10:00"
+    )
+
+    assert anonymous.status_code == 302
+    assert "/auth/login" in anonymous.location
+    assert physio.status_code == 403

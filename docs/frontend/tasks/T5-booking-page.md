@@ -52,5 +52,9 @@ Contracts: `contracts/student_new_appointment.md`. Template variables: `physios`
 - The reason options are the six in `decisions.md`, "Reasons for appointment". The stored value is the option
   text, so the existing short codes (`injury`, `pain`, and so on) are removed from the template.
 - The backend still accepts any text up to 500 characters, so the list is enforced only by the form.
+- T2 provides `GET /student/free-times?date=YYYY-MM-DD` with optional `physio_id`. Its JSON response has
+  `date` and `start_times` only; each start time is a local, timezone-naive ISO string to put in the select.
+- T3 provides `GET /student/resources?start_time=YYYY-MM-DDTHH:MM` with `resources` entries containing
+  `id`, `name`, and `available`. Use `available` as each equipment input's maximum.
 - T4 accepts an empty or omitted `physio_id` on `POST /student/appointments` and assigns an available
   physio during booking. Keep "Any physio" as the default dropdown option.
