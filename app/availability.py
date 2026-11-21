@@ -163,6 +163,30 @@ def _check_resource_availability_validated(
     return {"available": True}
 
 
+def get_available_resources(start_time):
+    if not isinstance(start_time, datetime):
+        raise AvailabilityValidationError("start_time must be a datetime")
+    try:
+        end_time = start_time + APPOINTMENT_DURATION
+    except OverflowError:
+        raise AvailabilityValidationError("start_time is out of range") from None
+    validate_availability_request(start_time, end_time, {})
+
+    resources = db.session.scalars(db.select(Resource).order_by(Resource.id)).all()
+    available_resources = []
+    for resource in resources:
+        available = max(
+            0,
+            resource.total_quantity
+            - _peak_reserved_units(resource.id, start_time, end_time),
+        )
+        if available:
+            available_resources.append(
+                {"id": resource.id, "name": resource.name, "available": available}
+            )
+    return available_resources
+
+
 def check_availability(
     start_time, end_time, requested_resources, physio_id, *, exclude_appointment_id=None
 ):

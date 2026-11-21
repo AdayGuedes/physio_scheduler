@@ -49,3 +49,14 @@ Response shape:
 - The response says how many units are free, not which appointments use them. Students must not see other
   students' bookings.
 - Equipment quantities come from `Resource.total_quantity`.
+
+## Implementation notes
+
+- `app/availability.py` adds `get_available_resources(start_time)`, which subtracts the peak confirmed
+  reservations during the 30-minute window from each resource's total quantity.
+- `app/student.py` adds `student.available_resources` at `GET /student/resources`. It returns the selected
+  `start_time` and only resources with at least one available unit. Invalid or past times return JSON 400.
+- `tests/test_student.py` covers the response, peak usage, fully booked and non-confirmed reservations,
+  invalid times, and client-only access. `CHANGELOG.md` records the change.
+- No deviation from the objective, acceptance criteria, or constraints. T5 can use the `available` value
+  as the maximum for each `resource_<id>` input; the booking POST still rechecks availability.
