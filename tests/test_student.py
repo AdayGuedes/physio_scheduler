@@ -52,7 +52,7 @@ def people(student_app):
         for name, role in [
             ("Client", "client"),
             ("Other", "client"),
-            ("Physio", "physio"),
+            ("Avery Chen", "physio"),
             ("Second", "physio"),
         ]
     ]
@@ -149,7 +149,7 @@ def test_empty_appointment_list(student_app, people):
 def test_new_form_supplies_resources_physios_and_canonical_url(student_app, people):
     response = _login(student_app, people[0][0]).get("/student/appointments/new")
     assert response.status_code == 200
-    assert "Physio" in response.text and "Second" in response.text
+    assert "Avery Chen" in response.text and "Second" in response.text
     assert "Client" not in response.text and "Other" not in response.text
     assert "Bed" in response.text
     with student_app.test_request_context():
@@ -221,7 +221,10 @@ def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
     )
     ids, _ = people
     future_id = _saved(people)
-    cancelled_id = _saved(people, status="cancelled_by_client")
+    cancelled_by_client_id = _saved(people, status="cancelled_by_client")
+    cancelled_by_physio_id = _saved(people, status="cancelled_by_physio")
+    completed_id = _saved(people, status="completed")
+    no_show_id = _saved(people, status="no_show")
     past_id = _saved(people)
     past = db.session.get(Appointment, past_id)
     past.start_time = datetime(2000, 1, 15, 10)
@@ -230,11 +233,20 @@ def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
 
     response = _login(student_app, ids[0]).get("/student/appointments")
     assert response.status_code == 200
-    assert "Physio" in response.text
+    assert "<p><strong>Physio:</strong> Avery Chen</p>" in response.text
     assert "Confirmed" in response.text
     assert "Cancelled by you" in response.text
     assert response.text.count('class="cancel-appointment-form"') == 2
-    assert f'action="/student/appointments/{cancelled_id}/cancel"' not in response.text
+    for appointment_id in (
+        cancelled_by_client_id,
+        cancelled_by_physio_id,
+        completed_id,
+        no_show_id,
+    ):
+        assert (
+            f'action="/student/appointments/{appointment_id}/cancel"'
+            not in response.text
+        )
     assert f'action="/student/appointments/{future_id}/cancel"' in response.text
     assert 'data-start-time="2000-01-15T10:00:00"' in response.text
     assert 'data-start-time="2035-01-15T10:00:00"' in response.text
@@ -244,7 +256,9 @@ def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
         re.DOTALL,
     )
     assert len(cancel_forms) == 2
-    assert all(re.search(r"\shidden(?:\s|>)", form) for form in cancel_forms)
+    assert all(not re.search(r"\shidden(?:\s|>)", form) for form in cancel_forms)
+    future_form = next(form for form in cancel_forms if f"{future_id}/cancel" in form)
+    assert 'data-start-time="2035-01-15T10:00:00"' in future_form
     assert 'name="csrf_token"' in response.text
     javascript = Path(__file__).parents[1] / "app" / "static" / "js" / "main.js"
     assert (

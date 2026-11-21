@@ -33,7 +33,6 @@
           <form method="POST"
                 action="{{ url_for('student.cancel_appointment', id=appointment.id) }}"
                 class="cancel-appointment-form"
-                hidden
                 data-start-time="{{ appointment.start_time.strftime('%Y-%m-%dT%H:%M:%S') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="cancel-appointment">Cancel Appointment</button>
