@@ -1,5 +1,6 @@
 """Student appointment queries and transactional booking operations."""
 
+import random
 from datetime import datetime
 
 from sqlalchemy.orm import selectinload
@@ -42,7 +43,8 @@ def get_appointments_by_client(client_id):
 
 
 def lock_booking(physio_id, resources):
-    """Hold the physio and shared resource locks until the caller ends its transaction."""
+    """Hold candidate physio and shared resource locks until transaction end."""
+    physio_filter = User.role == "physio" if physio_id is None else User.id == physio_id
     connection = db.session.connection()
     if connection.dialect.name == "sqlite":
         driver = connection.connection.driver_connection
@@ -56,13 +58,20 @@ def lock_booking(physio_id, resources):
         # including when a modern sqlite3 connection already has a read transaction.
         db.session.execute(
             db.update(User)
-            .where(User.id == physio_id)
+            .where(physio_filter)
             .values(id=User.id)
             .execution_options(synchronize_session=False)
         )
+        locked_physio_ids = (
+            db.session.scalars(
+                db.select(User.id).where(physio_filter).order_by(User.id)
+            ).all()
+            if physio_id is None
+            else [physio_id]
+        )
     else:
-        db.session.execute(
-            db.select(User.id).where(User.id == physio_id).with_for_update()
+        locked_physio_ids = db.session.scalars(
+            db.select(User.id).where(physio_filter).order_by(User.id).with_for_update()
         ).all()
         for resource_id in sorted(resources):
             db.session.execute(
@@ -70,6 +79,7 @@ def lock_booking(physio_id, resources):
                 .where(Resource.id == resource_id)
                 .with_for_update()
             ).all()
+    return locked_physio_ids
 
 
 def create_appointment(client_id, physio_id, start_time, reason, resources):
@@ -98,17 +108,31 @@ def create_appointment(client_id, physio_id, start_time, reason, resources):
             raise BookingValidationError(
                 f"Reason must be {REASON_MAX_LENGTH} characters or fewer."
             )
-        if type(physio_id) is not int or physio_id <= 0:
+        if physio_id is not None and (type(physio_id) is not int or physio_id <= 0):
             raise ValueError("physio_id must be a positive integer")
         if type(client_id) is not int or client_id <= 0:
             raise ValueError("client_id must be a positive integer")
-        lock_booking(physio_id, resources)
+        candidate_physio_ids = lock_booking(physio_id, resources)
         client = db.session.get(User, client_id)
         if client is None or client.role != "client":
             raise ValueError("Unknown client id.")
-        result = check_availability(start_time, end_time, resources, physio_id)
-        if not result["available"]:
-            raise AvailabilityError(result["message"])
+        if physio_id is None:
+            free_physio_ids = []
+            for candidate_id in candidate_physio_ids:
+                result = check_availability(
+                    start_time, end_time, resources, candidate_id
+                )
+                if result["available"]:
+                    free_physio_ids.append(candidate_id)
+                elif result["reason"] == "resource_unavailable":
+                    raise AvailabilityError(result["message"])
+            if not free_physio_ids:
+                raise AvailabilityError("No physiotherapist is available at this time.")
+            physio_id = random.choice(free_physio_ids)
+        else:
+            result = check_availability(start_time, end_time, resources, physio_id)
+            if not result["available"]:
+                raise AvailabilityError(result["message"])
         appointment = Appointment(
             client_id=client_id,
             physio_id=physio_id,
