@@ -71,3 +71,7 @@ Contracts: `contracts/student_new_appointment.md`. Template variables: `physios`
 - The full test suite, format check and lint pass. A fresh temporary database upgraded from migrations
   passes `flask db check`; the default local database has stale schema without the unique constraints on
   `resources.name`, `resources.type` and `users.email`.
+- Phone width was checked in a browser at 375 px with the equipment fields shown: the page has no
+  horizontal scroll. Typed equipment quantities are kept when the date, physio or start time changes, capped at
+  the new `available` value. A non-JSON reply shows a fixed error message and an expired session redirects
+  to the login page.

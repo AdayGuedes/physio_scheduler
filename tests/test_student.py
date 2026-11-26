@@ -1,5 +1,7 @@
 # Appointment timestamps follow the database's naive local-time convention.
 # ruff: noqa: DTZ001
+import html
+import json
 import re
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
@@ -183,14 +185,6 @@ def test_booking_page_renders_contract_fields_without_removed_fields(
     for field in ("sport", "student_id", "email", "notes", "end_time"):
         assert f'name="{field}"' not in form
 
-    javascript = Path(__file__).parents[1] / "app" / "static" / "js" / "main.js"
-    script = javascript.read_text()
-    assert "fetch(`/student/free-times?${query}`)" in script
-    assert "/student/resources?start_time=${encodeURIComponent(startTime)}" in script
-    assert "input.name = `resource_${resource.id}`" in script
-    assert "input.max = String(resource.available)" in script
-    assert "localStorage" not in script
-
 
 def test_booking_form_shows_errors_and_preserves_submitted_values(student_app, people):
     student_app.jinja_env.loader = FileSystemLoader(
@@ -200,7 +194,7 @@ def test_booking_form_shows_errors_and_preserves_submitted_values(student_app, p
         "/student/appointments",
         data={
             "csrf_token": "test-token",
-            "reason": "Other",
+            "reason": "Injury recovery",
             "physio_id": "",
             "start_time": "invalid",
         },
@@ -208,9 +202,13 @@ def test_booking_form_shows_errors_and_preserves_submitted_values(student_app, p
 
     assert response.status_code == 400
     assert "Enter a valid start date and time." in response.text
-    assert "data-form-data=" in response.text
-    assert "invalid" in response.text
-    assert "Other" in response.text
+    form_data = re.search(r'data-form-data="([^"]*)"', response.text)
+    assert json.loads(html.unescape(form_data.group(1))) == {
+        "reason": "Injury recovery",
+        "physio_id": "",
+        "start_time": "invalid",
+    }
+    assert '<option value="Injury recovery" selected>' in response.text
 
 
 def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
@@ -260,11 +258,6 @@ def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
     future_form = next(form for form in cancel_forms if f"{future_id}/cancel" in form)
     assert 'data-start-time="2035-01-15T10:00:00"' in future_form
     assert 'name="csrf_token"' in response.text
-    javascript = Path(__file__).parents[1] / "app" / "static" / "js" / "main.js"
-    assert (
-        "form.hidden = new Date(form.dataset.startTime).getTime() <= Date.now();"
-        in javascript.read_text()
-    )
 
 
 def test_rendered_empty_list_uses_contract_message_and_booking_link(

@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [PS-30] Add student free start times for a chosen or any available physio
 - [PS-31] Add available equipment endpoint for student booking
 - [NO-REF] Add task spec to enforce the clinic start-time grid on student bookings
+- [PS-19] Connect student booking and appointment pages to the backend
 
 ### Changed
 
@@ -37,7 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [NO-REF] Update README setup, database and test instructions
 - [NO-REF] Replace the Avocoding plugin block in CLAUDE.md with project rules and disable it here
 - [PS-29] Fix student appointments at 30 minutes and compute the end time in the backend
-- [PS-12] Connect student booking and appointment pages to the backend
 - [PS-32] Allow student bookings without choosing a physiotherapist
 
 ### Security

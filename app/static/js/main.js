@@ -16,6 +16,24 @@ if (appointmentForm) {
 
   let freeTimesRequest = 0;
   let equipmentRequest = 0;
+  const quantities = { ...formData };
+
+  async function fetchJson(url, errorMessage) {
+    let response;
+    let data;
+    try {
+      response = await fetch(url);
+      if (response.redirected) {
+        window.location.assign("/auth/login");
+        return null;
+      }
+      data = await response.json();
+    } catch {
+      throw new Error(errorMessage);
+    }
+    if (!response.ok) throw new Error(data.error || errorMessage);
+    return data;
+  }
 
   function clearEquipment() {
     equipmentRequest += 1;
@@ -30,12 +48,11 @@ if (appointmentForm) {
     if (!startTime) return;
 
     try {
-      const response = await fetch(
+      const data = await fetchJson(
         `/student/resources?start_time=${encodeURIComponent(startTime)}`,
+        "Unable to load equipment. Please try again.",
       );
-      const data = await response.json();
-      if (requestId !== equipmentRequest) return;
-      if (!response.ok) throw new Error(data.error || "Unable to load equipment.");
+      if (!data || requestId !== equipmentRequest) return;
 
       for (const resource of data.resources || []) {
         const wrapper = document.createElement("div");
@@ -52,7 +69,10 @@ if (appointmentForm) {
         input.min = "0";
         input.max = String(resource.available);
         input.step = "1";
-        input.value = formData[input.name] || "";
+        const quantity = Number.parseInt(quantities[input.name], 10);
+        input.value = Number.isNaN(quantity)
+          ? ""
+          : String(Math.min(Math.max(quantity, 0), resource.available));
         wrapper.append(label, input);
         equipmentFields.append(wrapper);
       }
@@ -85,10 +105,11 @@ if (appointmentForm) {
     if (physioSelect.value) query.set("physio_id", physioSelect.value);
 
     try {
-      const response = await fetch(`/student/free-times?${query}`);
-      const data = await response.json();
-      if (requestId !== freeTimesRequest) return;
-      if (!response.ok) throw new Error(data.error || "Unable to load free times.");
+      const data = await fetchJson(
+        `/student/free-times?${query}`,
+        "Unable to load free times. Please try again.",
+      );
+      if (!data || requestId !== freeTimesRequest) return;
 
       startTimeSelect.replaceChildren();
       if (!data.start_times.length) {
@@ -119,6 +140,9 @@ if (appointmentForm) {
     }
   }
 
+  equipmentFields.addEventListener("input", (event) => {
+    quantities[event.target.name] = event.target.value;
+  });
   appointmentDate.addEventListener("change", loadFreeTimes);
   physioSelect.addEventListener("change", loadFreeTimes);
   startTimeSelect.addEventListener("change", () => {
@@ -128,9 +152,16 @@ if (appointmentForm) {
   if (appointmentDate.value) loadFreeTimes();
 }
 
-
 for (const form of document.querySelectorAll(
   ".cancel-appointment-form[data-start-time]",
 )) {
   form.hidden = new Date(form.dataset.startTime).getTime() <= Date.now();
+}
+
+for (const form of document.querySelectorAll(".cancel-appointment-form")) {
+  form.addEventListener("submit", (event) => {
+    if (!confirm("Are you sure you want to cancel this appointment?")) {
+      event.preventDefault();
+    }
+  });
 }
