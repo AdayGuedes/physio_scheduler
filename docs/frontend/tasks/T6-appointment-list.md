@@ -50,9 +50,10 @@ Contracts: `contracts/student_appointments.md`.
 
 - Changed `app/templates/student/appointments.html` and the appointment-list block in
   `app/static/js/main.js`; added list coverage in `tests/test_student.py`.
-- The template renders cancel forms for confirmed appointments with their start time. JavaScript hides
-  forms when the start time has passed; the backend cancellation rule remains unchanged.
-- The cancel button is shown or hidden by comparing the browser time with the server's local time, so it
-  can differ when the browser timezone differs from the server's. Submitting the form asks for confirmation.
-- The full test suite passes: 572 passed, 1 skipped and 1 xfailed. Format check and lint pass.
+- The template renders a cancel form only for confirmed appointments whose start time is after `now`, which
+  `student.my_appointments` passes as the server's local time. The backend cancellation rule is unchanged.
+  Submitting the form asks for confirmation in JavaScript.
+- The cancel confirmation has no automated test. It was checked in a browser: refusing the prompt keeps the
+  appointment and the form, and accepting it shows "Cancelled by you" with no cancel form.
+- The full test suite passes: 573 passed and 1 xfailed. Format check and lint pass.
 - No later task depends on a new route, field or constant from T6.

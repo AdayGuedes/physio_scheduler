@@ -234,8 +234,9 @@ def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
     assert "<p><strong>Physio:</strong> Avery Chen</p>" in response.text
     assert "Confirmed" in response.text
     assert "Cancelled by you" in response.text
-    assert response.text.count('class="cancel-appointment-form"') == 2
+    assert response.text.count('class="cancel-appointment-form"') == 1
     for appointment_id in (
+        past_id,
         cancelled_by_client_id,
         cancelled_by_physio_id,
         completed_id,
@@ -246,17 +247,6 @@ def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
             not in response.text
         )
     assert f'action="/student/appointments/{future_id}/cancel"' in response.text
-    assert 'data-start-time="2000-01-15T10:00:00"' in response.text
-    assert 'data-start-time="2035-01-15T10:00:00"' in response.text
-    cancel_forms = re.findall(
-        r'<form\b[^>]*class="cancel-appointment-form"[^>]*>',
-        response.text,
-        re.DOTALL,
-    )
-    assert len(cancel_forms) == 2
-    assert all(not re.search(r"\shidden(?:\s|>)", form) for form in cancel_forms)
-    future_form = next(form for form in cancel_forms if f"{future_id}/cancel" in form)
-    assert 'data-start-time="2035-01-15T10:00:00"' in future_form
     assert 'name="csrf_token"' in response.text
 
 

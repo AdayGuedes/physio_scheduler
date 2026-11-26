@@ -4,6 +4,7 @@ if (appointmentForm) {
   const appointmentDate = document.getElementById("appointment-date");
   const physioSelect = document.getElementById("physio_id");
   const startTimeSelect = document.getElementById("start_time");
+  const submitButton = appointmentForm.querySelector('[type="submit"]');
   const freeTimesMessage = document.getElementById("free-times-message");
   const equipmentSection = document.getElementById("equipment-section");
   const equipmentFields = document.getElementById("equipment-fields");
@@ -14,11 +15,12 @@ if (appointmentForm) {
   localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
   appointmentDate.min = localDate.toISOString().slice(0, 10);
 
+  submitButton.disabled = startTimeSelect.disabled;
   let freeTimesRequest = 0;
   let equipmentRequest = 0;
   const quantities = { ...formData };
 
-  async function fetchJson(url, errorMessage) {
+  async function fetchJson(url, errorMessage, hasExpectedShape) {
     let response;
     let data;
     try {
@@ -31,7 +33,10 @@ if (appointmentForm) {
     } catch {
       throw new Error(errorMessage);
     }
-    if (!response.ok) throw new Error(data.error || errorMessage);
+    if (!response.ok) {
+      throw new Error(typeof data?.error === "string" && data.error ? data.error : errorMessage);
+    }
+    if (!hasExpectedShape(data)) throw new Error(errorMessage);
     return data;
   }
 
@@ -51,6 +56,7 @@ if (appointmentForm) {
       const data = await fetchJson(
         `/student/resources?start_time=${encodeURIComponent(startTime)}`,
         "Unable to load equipment. Please try again.",
+        (data) => Array.isArray(data?.resources),
       );
       if (!data || requestId !== equipmentRequest) return;
 
@@ -73,6 +79,7 @@ if (appointmentForm) {
         input.value = Number.isNaN(quantity)
           ? ""
           : String(Math.min(Math.max(quantity, 0), resource.available));
+        quantities[input.name] = input.value;
         wrapper.append(label, input);
         equipmentFields.append(wrapper);
       }
@@ -91,6 +98,7 @@ if (appointmentForm) {
     const savedTime = startTimeSelect.value || savedStartTime;
     startTimeSelect.replaceChildren();
     startTimeSelect.disabled = true;
+    submitButton.disabled = true;
     clearEquipment();
 
     if (!date) {
@@ -108,6 +116,7 @@ if (appointmentForm) {
       const data = await fetchJson(
         `/student/free-times?${query}`,
         "Unable to load free times. Please try again.",
+        (data) => Array.isArray(data?.start_times),
       );
       if (!data || requestId !== freeTimesRequest) return;
 
@@ -129,6 +138,7 @@ if (appointmentForm) {
         startTimeSelect.add(new Option(displayTime, startTime));
       }
       startTimeSelect.disabled = false;
+      submitButton.disabled = false;
       if (data.start_times.includes(savedTime)) {
         startTimeSelect.value = savedTime;
         await loadEquipment(savedTime);
@@ -150,12 +160,6 @@ if (appointmentForm) {
     loadEquipment(startTimeSelect.value);
   });
   if (appointmentDate.value) loadFreeTimes();
-}
-
-for (const form of document.querySelectorAll(
-  ".cancel-appointment-form[data-start-time]",
-)) {
-  form.hidden = new Date(form.dataset.startTime).getTime() <= Date.now();
 }
 
 for (const form of document.querySelectorAll(".cancel-appointment-form")) {

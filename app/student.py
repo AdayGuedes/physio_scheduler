@@ -85,6 +85,7 @@ def my_appointments():
     return render_template(
         ["student/my_appointments.html", "student/appointments.html"],
         appointments=get_appointments_by_client(current_user.id),
+        now=datetime.now(),  # noqa: DTZ005 (DB uses local naive times)
         csrf_token=generate_csrf(),
     )
 
