@@ -44,7 +44,7 @@
         <input id="appointment-date"
                type="date"
                class="form-control"
-               value="{{ form_data.get('start_time', '').split('T')[0] }}"
+               value="{{ form_data.get('start_time', '')[:10] if form_data.get('start_time', '')[4:5] == '-' else '' }}"
                required>
 
         <label for="start_time">Start time</label>

@@ -68,9 +68,8 @@ Contracts: `contracts/student_new_appointment.md`. Template variables: `physios`
   "Any physio". Failed submissions retain the supplied form values.
 - T2, T3 and T4 were merged from main before T5 implementation. No backend or migration code was changed
   for T5.
-- The full test suite, format check and lint pass. A fresh temporary database upgraded from migrations
-  passes `flask db check`; the default local database has stale schema without the unique constraints on
-  `resources.name`, `resources.type` and `users.email`.
+- The full test suite, format check and lint pass. A fresh database upgraded from migrations passes
+  `flask db check`.
 - Phone width was checked in a browser at 375 px with the equipment fields shown: the page has no
   horizontal scroll. Typed equipment quantities are kept when the date, physio or start time changes, capped at
   the new `available` value. A non-JSON reply shows a fixed error message and an expired session redirects

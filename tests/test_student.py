@@ -46,6 +46,13 @@ def student_app(app):
 
 
 @pytest.fixture
+def real_templates(student_app):
+    student_app.jinja_env.loader = FileSystemLoader(
+        Path(__file__).parents[1] / "app" / "templates"
+    )
+
+
+@pytest.fixture
 def people(student_app):
     users = [
         User(
@@ -159,11 +166,8 @@ def test_new_form_supplies_resources_physios_and_canonical_url(student_app, peop
 
 
 def test_booking_page_renders_contract_fields_without_removed_fields(
-    student_app, people
+    student_app, people, real_templates
 ):
-    student_app.jinja_env.loader = FileSystemLoader(
-        Path(__file__).parents[1] / "app" / "templates"
-    )
     response = _login(student_app, people[0][0]).get("/student/appointments/new")
     assert response.status_code == 200
     form = response.text.split("<form", 1)[1].split("</form>", 1)[0]
@@ -186,10 +190,9 @@ def test_booking_page_renders_contract_fields_without_removed_fields(
         assert f'name="{field}"' not in form
 
 
-def test_booking_form_shows_errors_and_preserves_submitted_values(student_app, people):
-    student_app.jinja_env.loader = FileSystemLoader(
-        Path(__file__).parents[1] / "app" / "templates"
-    )
+def test_booking_form_shows_errors_and_preserves_submitted_values(
+    student_app, people, real_templates
+):
     response = _login(student_app, people[0][0]).post(
         "/student/appointments",
         data={
@@ -212,11 +215,8 @@ def test_booking_form_shows_errors_and_preserves_submitted_values(student_app, p
 
 
 def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
-    student_app, people
+    student_app, people, real_templates
 ):
-    student_app.jinja_env.loader = FileSystemLoader(
-        Path(__file__).parents[1] / "app" / "templates"
-    )
     ids, _ = people
     future_id = _saved(people)
     cancelled_by_client_id = _saved(people, status="cancelled_by_client")
@@ -251,11 +251,8 @@ def test_appointment_page_uses_contract_status_labels_and_cancel_rules(
 
 
 def test_rendered_empty_list_uses_contract_message_and_booking_link(
-    student_app, people
+    student_app, people, real_templates
 ):
-    student_app.jinja_env.loader = FileSystemLoader(
-        Path(__file__).parents[1] / "app" / "templates"
-    )
     response = _login(student_app, people[0][0]).get("/student/appointments")
     assert "No appointments yet" in response.text
     assert 'href="/student/appointments/new"' in response.text
