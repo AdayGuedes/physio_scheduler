@@ -10,6 +10,7 @@ Decisions: see `docs/frontend/decisions.md`.
 | Variable | Type | Used for |
 |---|---|---|
 | `appointments` | list of Appointment (client's own, ordered by start time then ID, history included) | One row or card per appointment |
+| `now` | datetime (naive, local) | Decide whether an appointment start time is in the future |
 | `csrf_token` | str | Hidden field in each cancel form |
 
 ## Fields per appointment

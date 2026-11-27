@@ -1,112 +1,171 @@
-// ---------------- NEW APPOINTMENT ----------------
-
 const appointmentForm = document.getElementById("appointment-form");
 
 if (appointmentForm) {
-  const successMessage = document.getElementById("success-message");
   const appointmentDate = document.getElementById("appointment-date");
+  const physioSelect = document.getElementById("physio_id");
+  const startTimeSelect = document.getElementById("start_time");
+  const submitButton = appointmentForm.querySelector('[type="submit"]');
+  const freeTimesMessage = document.getElementById("free-times-message");
+  const equipmentSection = document.getElementById("equipment-section");
+  const equipmentFields = document.getElementById("equipment-fields");
+  const equipmentMessage = document.getElementById("equipment-message");
+  const formData = JSON.parse(appointmentForm.dataset.formData || "{}");
+  let savedStartTime = startTimeSelect.dataset.savedStartTime;
+  const localDate = new Date();
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+  appointmentDate.min = localDate.toISOString().slice(0, 10);
 
-  // Prevent users from selecting a date in the past.
-  // Use local date instead of UTC.
-  const now = new Date();
+  submitButton.disabled = startTimeSelect.disabled;
+  let freeTimesRequest = 0;
+  let equipmentRequest = 0;
+  const quantities = { ...formData };
 
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-
-  appointmentDate.min = `${year}-${month}-${day}`;
-
-  appointmentForm.addEventListener("submit", function (event) {
-    event.preventDefault();
-
-    const appointment = {
-      fullName: document.getElementById("full-name").value,
-      studentId: document.getElementById("student-id").value,
-      email: document.getElementById("email").value,
-      sport: document.getElementById("sport-select").value,
-      date: document.getElementById("appointment-date").value,
-      time: document.getElementById("appointment-time").value,
-      reason: document.getElementById("reason").value,
-      notes: document.getElementById("notes").value,
-    };
-
-    // TODO(PS-API): Replace localStorage with a POST request
-    // to the Flask backend when the appointment API is implemented.
-    localStorage.setItem(
-      "appointment",
-      JSON.stringify(appointment),
-    );
-
-    successMessage.textContent =
-      "Your appointment has been scheduled successfully!";
-
-    successMessage.classList.add("success");
-
-    setTimeout(function () {
-      window.location.href = "/student/appointments";
-    }, 1000);
-  });
-}
-
-
-// ---------------- MY APPOINTMENTS ----------------
-
-const appointmentCard =
-  document.getElementById("appointment-card");
-
-if (appointmentCard) {
-  const savedAppointment =
-    localStorage.getItem("appointment");
-
-  if (savedAppointment) {
+  async function fetchJson(url, errorMessage, hasExpectedShape) {
+    let response;
+    let data;
     try {
-      const appointment = JSON.parse(savedAppointment);
+      response = await fetch(url);
+      if (response.redirected) {
+        window.location.assign("/auth/login");
+        return null;
+      }
+      data = await response.json();
+    } catch {
+      throw new Error(errorMessage);
+    }
+    if (!response.ok) {
+      throw new Error(typeof data?.error === "string" && data.error ? data.error : errorMessage);
+    }
+    if (!hasExpectedShape(data)) throw new Error(errorMessage);
+    return data;
+  }
 
-      document.getElementById("no-appointments").style.display =
-        "none";
+  function clearEquipment() {
+    equipmentRequest += 1;
+    equipmentFields.replaceChildren();
+    equipmentMessage.textContent = "";
+    equipmentSection.hidden = true;
+  }
 
-      document.getElementById("appointment-name").textContent =
-        appointment.fullName;
+  async function loadEquipment(startTime) {
+    clearEquipment();
+    const requestId = equipmentRequest;
+    if (!startTime) return;
 
-      document.getElementById(
-        "appointment-date-display",
-      ).textContent = appointment.date;
+    try {
+      const data = await fetchJson(
+        `/student/resources?start_time=${encodeURIComponent(startTime)}`,
+        "Unable to load equipment. Please try again.",
+        (data) => Array.isArray(data?.resources),
+      );
+      if (!data || requestId !== equipmentRequest) return;
 
-      document.getElementById(
-        "appointment-time-display",
-      ).textContent = appointment.time;
+      for (const resource of data.resources || []) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "mb-3";
+        const label = document.createElement("label");
+        label.className = "form-label";
+        label.htmlFor = `resource-${resource.id}`;
+        label.textContent = `${resource.name} (Available: ${resource.available})`;
+        const input = document.createElement("input");
+        input.className = "form-control";
+        input.type = "number";
+        input.id = `resource-${resource.id}`;
+        input.name = `resource_${resource.id}`;
+        input.min = "0";
+        input.max = String(resource.available);
+        input.step = "1";
+        const quantity = Number.parseInt(quantities[input.name], 10);
+        input.value = Number.isNaN(quantity)
+          ? ""
+          : String(Math.min(Math.max(quantity, 0), resource.available));
+        quantities[input.name] = input.value;
+        wrapper.append(label, input);
+        equipmentFields.append(wrapper);
+      }
 
-      document.getElementById("appointment-sport").textContent =
-        appointment.sport;
-
-      document.getElementById("appointment-reason").textContent =
-        appointment.reason;
-
-      document.getElementById("appointment-notes").textContent =
-        appointment.notes || "No additional notes.";
+      if (data.resources?.length) equipmentSection.hidden = false;
     } catch (error) {
-      // Remove corrupted appointment data.
-      localStorage.removeItem("appointment");
+      if (requestId !== equipmentRequest) return;
+      equipmentSection.hidden = false;
+      equipmentMessage.textContent = error.message;
     }
   }
-}
 
+  async function loadFreeTimes() {
+    const requestId = ++freeTimesRequest;
+    const date = appointmentDate.value;
+    const savedTime = startTimeSelect.value || savedStartTime;
+    startTimeSelect.replaceChildren();
+    startTimeSelect.disabled = true;
+    submitButton.disabled = true;
+    clearEquipment();
 
-// ---------------- CANCEL APPOINTMENT ----------------
+    if (!date) {
+      startTimeSelect.add(new Option("Select a date first", ""));
+      freeTimesMessage.textContent = "";
+      return;
+    }
 
-function cancelAppointment() {
-  const confirmCancel = confirm(
-    "Are you sure you want to cancel this appointment?",
-  );
+    startTimeSelect.add(new Option("Loading...", ""));
+    freeTimesMessage.textContent = "";
+    const query = new URLSearchParams({ date });
+    if (physioSelect.value) query.set("physio_id", physioSelect.value);
 
-  if (confirmCancel) {
-    localStorage.removeItem("appointment");
+    try {
+      const data = await fetchJson(
+        `/student/free-times?${query}`,
+        "Unable to load free times. Please try again.",
+        (data) => Array.isArray(data?.start_times),
+      );
+      if (!data || requestId !== freeTimesRequest) return;
 
-    window.location.href = "/student/appointments";
+      startTimeSelect.replaceChildren();
+      if (!data.start_times.length) {
+        startTimeSelect.add(new Option("No free times", ""));
+        freeTimesMessage.textContent = "No free times on this day";
+        return;
+      }
+
+      startTimeSelect.add(new Option("Select a time", ""));
+      for (const startTime of data.start_times) {
+        const time = startTime.slice(11, 16);
+        const [hours, minutes] = time.split(":").map(Number);
+        const displayTime = new Date(2000, 0, 1, hours, minutes).toLocaleTimeString(
+          [],
+          { hour: "numeric", minute: "2-digit" },
+        );
+        startTimeSelect.add(new Option(displayTime, startTime));
+      }
+      startTimeSelect.disabled = false;
+      submitButton.disabled = false;
+      if (data.start_times.includes(savedTime)) {
+        startTimeSelect.value = savedTime;
+        await loadEquipment(savedTime);
+      }
+    } catch (error) {
+      if (requestId !== freeTimesRequest) return;
+      startTimeSelect.replaceChildren(new Option("Unable to load free times", ""));
+      freeTimesMessage.textContent = error.message;
+    }
   }
+
+  equipmentFields.addEventListener("input", (event) => {
+    quantities[event.target.name] = event.target.value;
+  });
+  appointmentDate.addEventListener("change", loadFreeTimes);
+  physioSelect.addEventListener("change", loadFreeTimes);
+  startTimeSelect.addEventListener("change", () => {
+    savedStartTime = "";
+    loadEquipment(startTimeSelect.value);
+  });
+  if (appointmentDate.value) loadFreeTimes();
 }
 
-const cancelAppointmentButton = document.querySelector(".cancel-appointment");
-if (cancelAppointmentButton) {
-  cancelAppointmentButton.addEventListener("click", cancelAppointment);
+for (const form of document.querySelectorAll(".cancel-appointment-form")) {
+  form.addEventListener("submit", (event) => {
+    if (!confirm("Are you sure you want to cancel this appointment?")) {
+      event.preventDefault();
+    }
+  });
 }
